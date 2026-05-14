@@ -1,0 +1,62 @@
+{
+  "name": "vue-nnn-router",
+  "version": "0.0.1",
+  "description": "File-based SPA routing for Vue Router 4–5 — build RouteRecordRaw from Vite import.meta.glob (index.vue, _layout.vue, [param], _middleware cascade).",
+  "type": "module",
+  "main": "./dist/vue-nnn-router.cjs",
+  "module": "./dist/vue-nnn-router.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/vue-nnn-router.js",
+      "require": "./dist/vue-nnn-router.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "README.vi.md",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm test",
+    "demo:dev": "npm --prefix ./demo run dev",
+    "demo:install": "npm --prefix ./demo install",
+    "demo:build": "npm --prefix ./demo run build"
+  },
+  "keywords": [
+    "vite",
+    "vue",
+    "vue-router",
+    "vue-router-4",
+    "vue-router-5",
+    "file-based-router",
+    "glob",
+    "import-meta-glob",
+    "spa-routing",
+    "directory-router",
+    "middleware",
+    "layout"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "vue": "^3.3.0",
+    "vue-router": "^4.2.0 || ^5.0.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.2",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.3",
+    "vue": "^3.5.16",
+    "vue-router": "^4.6.4"
+  }
+}
