@@ -5,6 +5,8 @@ const links = [
   { to: "/users", label: "/users" },
   { to: "/users/add", label: "/users/add" },
   { to: "/users/demo-123", label: "/users/demo-123" },
+  { to: "/settings", label: "/settings → profile" },
+  { to: "/settings/notifications", label: "/settings/notifications" },
 ];
 </script>
 
@@ -17,6 +19,8 @@ const links = [
         <code>index.vue</code>
         ,
         <code>_layout.vue</code>
+        ,
+        <code>_redirect.ts</code>
         ).
         —
         <kbd>npm run dev</kbd>
