@@ -7,9 +7,11 @@ import type { NnnRouteMeta } from "./types";
 import {
   dynamicScore,
   isMiddlewareKey,
+  isRedirectKey,
   middlewareDirFromNormKey,
   normalizePath,
   pathFromSegments,
+  redirectDirFromNormKey,
   stripRoutesRoot,
 } from "./path";
 import { simplifyGlobKey, unwrapDefault } from "./globUtils";
@@ -22,6 +24,7 @@ const LAYOUT_BASENAME = "_layout";
 function isLikelyRouteFileKey(sk: string): boolean {
   if (!PAGE_EXT.test(sk)) return false;
   if (/\.(ts|js)$/i.test(sk) && /_middleware\.(ts|js)$/i.test(sk)) return false;
+  if (/\.(ts|js)$/i.test(sk) && /_redirect\.(ts|js)$/i.test(sk)) return false;
   return true;
 }
 
@@ -37,8 +40,8 @@ export function warnIfRoutesRootLikelyWrong(
   const bad = targets.filter((r) => /\.\.(?:\/|$)/.test(r.sk)).length;
   if (bad >= 1) {
     console.warn(
-      `[vue-nnn-router] ${bad}/${targets.length} key route vẫn chứa ".." sau routesRoot="${routesRoot}". ` +
-        `Đặt routesRoot khớp tiền tố thực của key glob (vd. pattern ../pages/** → routesRoot: "../pages").`,
+      `[vue-nnn-router] ${bad}/${targets.length} route key(s) still contain ".." after routesRoot="${routesRoot}". ` +
+        `Set routesRoot to match the actual glob key prefix (e.g. pattern ../pages/** → routesRoot: "../pages").`,
     );
   }
 }
@@ -77,6 +80,7 @@ type PageRec = {
 
 type TrieNode = {
   layout?: { rawKey: string; modIn: unknown; pathNoExt: string };
+  redirect?: { rawKey: string; modIn: unknown; pathNoExt: string };
   pages: Map<string, PageRec>;
   dirs: Map<string, TrieNode>;
 };
@@ -107,7 +111,7 @@ function toCmp(mod: unknown): Cmp {
   if (typeof x === "object" || typeof x === "string") return x as Cmp;
   if (mod !== null && typeof mod === "function") return mod as Cmp;
   throw new Error(
-    "[vue-nnn-router] Export default không hợp lệ (component Vue hoặc lazy import)."
+    "[vue-nnn-router] Invalid default export (expected a Vue component or lazy import)."
   );
 }
 
@@ -218,7 +222,62 @@ function makeLeaf(
   };
 }
 
-type Cfg = { mwMap: Map<string, unknown>; pf: string; sq: { seq: number } };
+type Cfg = {
+  mwMap: Map<string, unknown>;
+  pf: string;
+  sq: { seq: number };
+  silent?: boolean;
+};
+
+function hasIndexPage(node: TrieNode): boolean {
+  return node.pages.has("index");
+}
+
+/** `export default` trong `_redirect.ts`: URL tuyệt đối (`/users/add`) hoặc tương đối (`add`). */
+function resolveRedirectTarget(
+  modIn: unknown,
+  mountPieces: readonly string[],
+  pf: string,
+): string | null {
+  const raw = unwrapDefault(modIn);
+  if (typeof raw !== "string") return null;
+  const t = raw.trim();
+  if (!t) return null;
+  if (t.startsWith("/")) return normalizePath(t);
+  const pieces = [...mountPieces, ...t.split("/").filter(Boolean)];
+  return absHref(pieces, pf);
+}
+
+function injectLayoutRedirect(
+  acc: Built[],
+  node: TrieNode,
+  mountPieces: readonly string[],
+  cfg: Cfg,
+): void {
+  if (hasIndexPage(node) || !node.redirect) return;
+
+  const layoutAbs = absHref(mountPieces, cfg.pf);
+  const target = resolveRedirectTarget(node.redirect.modIn, mountPieces, cfg.pf);
+  if (!target) {
+    if (cfg.silent !== true) {
+      console.warn(
+        `[vue-nnn-router] Invalid _redirect in "${node.redirect.rawKey}" (expected export default string).`,
+      );
+    }
+    return;
+  }
+
+  acc.unshift({
+    path: "",
+    redirect: target,
+    name: `${nm(layoutAbs)}-redirect`,
+    meta: { nnnFile: node.redirect.rawKey } satisfies NnnRouteMeta,
+    _dyn: 0,
+    _abs: layoutAbs,
+    _fk: node.redirect.rawKey,
+    _order: cfg.sq.seq++,
+  } as Built);
+}
 
 function childrenInsideLayout(node: TrieNode, mountPieces: readonly string[], cfg: Cfg): Built[] {
   const acc: Built[] = [];
@@ -251,6 +310,8 @@ function childrenInsideLayout(node: TrieNode, mountPieces: readonly string[], cf
       acc.push(...flattenNoLay(cn, mountPieces, [fs], cfg));
     }
   }
+
+  injectLayoutRedirect(acc, node, mountPieces, cfg);
 
   return acc.sort((x, y) =>
     x._dyn !== y._dyn ? x._dyn - y._dyn : String(x.path).localeCompare(String(y.path))
@@ -404,7 +465,7 @@ export function createSpaNnnRoutes(
       prev !== rawKey &&
       options.silent !== true
     ) {
-      console.warn(`[vue-nnn-router] Middleware trùng "${d || "/"}".`);
+      console.warn(`[vue-nnn-router] Duplicate middleware for "${d || "/"}".`);
     }
     mwSeen.set(d, rawKey);
     mwMap.set(d, modIn);
@@ -427,6 +488,7 @@ export function createSpaNnnRoutes(
 
   for (const { rawKey, sk, modIn } of rows) {
     if (/\.(ts|js)$/i.test(sk) && /_middleware\.(ts|js)$/i.test(sk)) continue;
+    if (/\.(ts|js)$/i.test(sk) && /_redirect\.(ts|js)$/i.test(sk)) continue;
 
     const p = parse(sk);
     if (!p) continue;
@@ -443,7 +505,7 @@ export function createSpaNnnRoutes(
         options.silent !== true
       ) {
         console.warn(
-          `[vue-nnn-router] Trùng _layout.vue trong thư mục, giữ "${n.layout.rawKey}".`,
+          `[vue-nnn-router] Duplicate _layout.vue in folder, keeping "${n.layout.rawKey}".`,
         );
       } else if (n.layout === undefined) {
         n.layout = { rawKey, modIn, pathNoExt: pn };
@@ -454,7 +516,7 @@ export function createSpaNnnRoutes(
     const n = trieEnsure(root, fsDirs);
     const existing = n.pages.get(base);
     if (existing && existing.rawKey !== rawKey && options.silent !== true) {
-      console.warn(`[vue-nnn-router] Hai file trong cùng thư mục: "${base}".`);
+      console.warn(`[vue-nnn-router] Duplicate basename in folder: "${base}".`);
       continue;
     }
     if (!existing) {
@@ -468,7 +530,36 @@ export function createSpaNnnRoutes(
     }
   }
 
-  const cfg: Cfg = { mwMap, pf: pf, sq: { seq: 0 } };
+  const redirectSeen = new Map<string, string>();
+  for (const { rawKey, sk, modIn } of rows) {
+    if (!isRedirectKey(sk)) continue;
+    const dir = redirectDirFromNormKey(sk);
+    const fsDirs = dir ? dir.split("/").filter(Boolean) : [];
+    const n = trieEnsure(root, fsDirs);
+    const prev = redirectSeen.get(dir);
+    if (prev !== undefined && prev !== rawKey && options.silent !== true) {
+      console.warn(`[vue-nnn-router] Duplicate _redirect for "${dir || "/"}".`);
+    }
+    redirectSeen.set(dir, rawKey);
+    if (
+      n.redirect !== undefined &&
+      n.redirect.rawKey !== rawKey &&
+      options.silent !== true
+    ) {
+      console.warn(
+        `[vue-nnn-router] Duplicate _redirect in folder, keeping "${n.redirect.rawKey}".`,
+      );
+    } else if (n.redirect === undefined) {
+      n.redirect = { rawKey, modIn, pathNoExt: pathNoExt(sk) };
+    }
+    if (!n.layout && options.silent !== true) {
+      console.warn(
+        `[vue-nnn-router] _redirect "${rawKey}" has no _layout in the same folder — skipped when building routes.`,
+      );
+    }
+  }
+
+  const cfg: Cfg = { mwMap, pf: pf, sq: { seq: 0 }, silent: options.silent };
 
   let top: Built[] = [];
 
@@ -539,7 +630,7 @@ export function createSpaNnnRoutes(
   if (dupEntries.length && !silent && typeof strat !== "function") {
     for (const [p, arr] of dupEntries) {
       console.warn(
-        `[vue-nnn-router] Trùng URL "${p}": ${arr.map((x) => x._fk).join(", ")}`,
+        `[vue-nnn-router] Duplicate URL "${p}": ${arr.map((x) => x._fk).join(", ")}`,
       );
     }
   }

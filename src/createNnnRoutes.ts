@@ -5,7 +5,7 @@ import { createSpaNnnRoutes } from "./spaRoutes";
 export { simplifyGlobKey } from "./globUtils";
 
 /**
- * Từ map `import.meta.glob` sinh `RouteRecordRaw[]` — quy ước SPA: `index.vue`, `_layout.vue`, `[param]`.
+ * Từ map `import.meta.glob` sinh `RouteRecordRaw[]` — quy ước SPA: `index.vue`, `_layout.vue`, `_redirect.ts`, `[param]`.
  */
 export function createNnnRoutes(
   globRecord: Record<string, unknown>,
