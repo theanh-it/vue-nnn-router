@@ -43,6 +43,20 @@ export function middlewareLogicalKey(prefixPath: string): string {
   return `${prefixPath}/_middleware`;
 }
 
+export function isRedirectKey(key: string): boolean {
+  const n = key.replace(/\\/g, "/").split("?")[0];
+  return /^(.+\/)?_redirect\.(ts|js)$/i.test(n);
+}
+
+/** Thư mục chứa `_redirect` (chuỗi rỗng = ngay trong `routesRoot`). */
+export function redirectDirFromNormKey(normKey: string): string {
+  const n = normKey.replace(/\\/g, "/").split("?")[0];
+  const nested = /^(.*?)\/_redirect\.(ts|js)$/i.exec(n);
+  if (nested) return nested[1]!;
+  if (/^_redirect\.(ts|js)$/i.test(n)) return "";
+  return "";
+}
+
 /** Đếm độ động (số `/:`) để ưu tiên route tĩnh trước. */
 export function dynamicScore(pathPattern: string): number {
   return (pathPattern.match(/\/:/g) || []).length;

@@ -1,6 +1,6 @@
 # vue-nnn-router
 
-File-based routing for **[Vue Router](https://router.vuejs.org/)** (**4.x** or **5.x**): **SPA-style** pages (`index.vue`, optional **`_layout.vue`** per folder), dynamic segments **`[param]` → `:param`**, cascading **`_middleware.ts`**, powered by a Vite **`import.meta.glob`** map (or any equivalent `Record<string, unknown>`).
+File-based routing for **[Vue Router](https://router.vuejs.org/)** (**4.x** or **5.x**): **SPA-style** pages (`index.vue`, optional **`_layout.vue`** and **`_redirect.ts`** per folder), dynamic segments **`[param]` → `:param`**, cascading **`_middleware.ts`**, powered by a Vite **`import.meta.glob`** map (or any equivalent `Record<string, unknown>`).
 
 **English** | [Tiếng Việt](README.vi.md)
 
@@ -76,6 +76,7 @@ pages/
   users/
     _layout.vue            # layout for /users/** — must render <RouterView />
     _middleware.ts
+    _redirect.ts           # (optional) redirect /users when there is no index.vue
     index.vue              # /users
     add.vue                # /users/add
     [id].vue               # /users/:id (shorthand; same idea as users/[id]/index.vue)
@@ -86,6 +87,7 @@ pages/
 - **Other basenames (`add.vue`, …):** one more segment in the URL.
 - **`[param].*` or `[param]/` folders:** **`[id]` → `:id`** in the URL.
 - **`_layout.vue`:** wraps child routes (same **`_`** prefix rule as **`_middleware.ts`**); nested views need **`<RouterView />`**.
+- **`_redirect.ts`:** when a folder has **`_layout`** but **no** **`index.*`**, the library injects `{ path: "", redirect: "..." }`. `export default` is an absolute URL (`"/users/add"`) or a relative segment (`"add"`). If **`index.*`** exists, **`_redirect` is ignored**.
 
 ## Glob patterns and `routesRoot`
 
@@ -270,6 +272,24 @@ Each **leaf** `RouteRecordRaw` gets a single composed **`beforeEnter`** chain. T
 
 If any guard calls `next(false)`, `throw`, or redirects with `next('/somewhere')`, later steps follow normal Vue Router rules (may never run).
 
+### `_redirect.ts` — default child when a layout has no `index`
+
+If a folder has **`_layout.vue`** but **no** **`index.vue`**, visiting the parent URL (e.g. `/users`) renders the layout with an empty `<RouterView />`. Add **`_redirect.ts`** next to **`_layout`** and the library injects `{ path: "", redirect: "..." }`:
+
+```ts
+// src/pages/users/_redirect.ts
+export default "add"; // redirects /users → /users/add
+
+// or an absolute URL:
+// export default "/users/add";
+```
+
+Include the file in your glob (`**/*.{ts,js}` or `**/_redirect.ts`, **eager**).
+
+If **`index.*`** already exists, **`_redirect` is ignored** — `index` remains the default page.
+
+**With `prefix`:** prefer a **relative** target (`"add"` → `/app/users/add` when `prefix: "app"`). An **absolute** path (`"/users/add"`) is used as-is and does **not** include `prefix`.
+
 ### Directory middleware — default export, single guard
 
 ```ts
@@ -421,7 +441,7 @@ const routes = createNnnRoutes(modules, {
 
 Each generated leaf sets **`meta.nnnFile`** to the **original** glob key (before strip), which helps editors and debugger linking.
 
-**Exported helpers:** `createSpaNnnRoutes`, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`dynamicScore`**.
+**Exported helpers:** `createSpaNnnRoutes`, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`isRedirectKey`**, **`redirectDirFromNormKey`**, **`dynamicScore`**.
 
 ---
 

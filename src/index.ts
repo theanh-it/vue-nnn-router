@@ -16,6 +16,8 @@ export {
   isMiddlewareKey,
   middlewareLogicalKey,
   middlewareDirFromNormKey,
+  isRedirectKey,
+  redirectDirFromNormKey,
   stripRoutesRoot,
   dynamicScore,
 } from "./path";

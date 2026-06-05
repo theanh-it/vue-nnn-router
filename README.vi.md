@@ -1,6 +1,6 @@
 # vue-nnn-router
 
-**Định tuyến theo thư mục** cho **[Vue Router](https://router.vuejs.org/)** (**4.x** hoặc **5.x**): SPA với **`index.vue`**, **`_layout.vue`** (tùy chọn), **`[param]` → `:param`**, middleware xếp chồng **`_middleware.ts`**, dựa trên map **`import.meta.glob`** của Vite (hoặc `Record<string, unknown>` tương đương).
+**Định tuyến theo thư mục** cho **[Vue Router](https://router.vuejs.org/)** (**4.x** hoặc **5.x**): SPA với **`index.vue`**, **`_layout.vue`** và **`_redirect.ts`** (tùy chọn), **`[param]` → `:param`**, middleware xếp chồng **`_middleware.ts`**, dựa trên map **`import.meta.glob`** của Vite (hoặc `Record<string, unknown>` tương đương).
 
 [Tiếng Anh](README.md) | **Tiếng Việt**
 
@@ -76,6 +76,7 @@ pages/
   users/
     _layout.vue            # bọc /users/** — bắt buộc có <RouterView />
     _middleware.ts
+    _redirect.ts           # (tùy chọn) redirect /users khi không có index.vue
     index.vue              # /users
     add.vue                # /users/add
     [id].vue               # /users/:id (rút gọn; tương đương users/[id]/index.vue)
@@ -86,6 +87,7 @@ pages/
 - **Basename khác (`add.vue`, …):** thêm một segment URL.
 - **`[param]`** trong tên file hoặc thư mục → **`[id]` becomes `:id`** trong path.
 - **`_layout.vue`:** layout cho route con (cùng quy ước **`_`** với **`_middleware.ts`**); route con render trong **`<RouterView />`**.
+- **`_redirect.ts`:** khi thư mục có **`_layout`** nhưng **không** có **`index.*`**, lib sinh route con `{ path: "", redirect: "..." }`. `export default` là URL tuyệt đối (`"/users/add"`) hoặc tương đối (`"add"`). Nếu đã có **`index.*`** thì **`_redirect` bị bỏ qua**.
 
 ## Pattern glob và `routesRoot`
 
@@ -269,6 +271,24 @@ Vue Router chỉ có một chuỗi **`beforeEnter`** trên từng **record lá**
 
 Nếu bất kỳ guard gọi `next(false)`, ném lỗi, hoặc `next('/elsewhere')` thì các bước sau có thể **không** chạy (theo luật của Vue Router).
 
+### `_redirect.ts` — trang mặc định khi layout không có `index`
+
+Khi thư mục có **`_layout.vue`** nhưng **không** có **`index.vue`**, vào URL cha (vd. `/users`) sẽ chỉ render layout với `<RouterView />` trống. Đặt **`_redirect.ts`** cạnh **`_layout`** để lib tự sinh `{ path: "", redirect: "..." }`:
+
+```ts
+// src/pages/users/_redirect.ts
+export default "add"; // → redirect /users → /users/add
+
+// hoặc URL tuyệt đối:
+// export default "/users/add";
+```
+
+Glob cần nạp file này (pattern `**/*.{ts,js}` hoặc `**/_redirect.ts`, **eager**).
+
+Nếu đã có **`index.*`**, **`_redirect` bị bỏ qua** — `index` luôn là trang mặc định.
+
+**Khi có `prefix`:** nên dùng đích **tương đối** (`"add"` → `/app/users/add` với `prefix: "app"`). Đường dẫn **tuyệt đối** (`"/users/add"`) giữ nguyên, **không** tự thêm `prefix`.
+
 ### Middleware thư mục — `export default` một guard
 
 ```ts
@@ -421,7 +441,7 @@ Key **`.vue`** và **`_middleware.ts`** thường **không** trùng tên trong m
 
 Mỗi lá route có **`meta.nnnFile`** = **key glob gốc** (trước `stripRoutesRoot`), tiện nhảy vào file trong IDE/debug.
 
-**Export tiện ích:** `createSpaNnnRoutes`, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`dynamicScore`**.
+**Export tiện ích:** `createSpaNnnRoutes`, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`isRedirectKey`**, **`redirectDirFromNormKey`**, **`dynamicScore`**.
 
 ---
 

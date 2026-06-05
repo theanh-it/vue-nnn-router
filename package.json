@@ -1,7 +1,15 @@
 {
   "name": "vue-nnn-router",
-  "version": "0.0.1",
-  "description": "File-based SPA routing for Vue Router 4–5 — build RouteRecordRaw from Vite import.meta.glob (index.vue, _layout.vue, [param], _middleware cascade).",
+  "version": "0.0.2",
+  "description": "File-based SPA routing for Vue Router 4–5 — build RouteRecordRaw from Vite import.meta.glob (index.vue, _layout.vue, _redirect.ts, [param], _middleware cascade).",
+  "homepage": "https://github.com/theanh-it/vue-nnn-router#readme",
+  "bugs": {
+    "url": "https://github.com/theanh-it/vue-nnn-router/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theanh-it/vue-nnn-router.git"
+  },
   "type": "module",
   "main": "./dist/vue-nnn-router.cjs",
   "module": "./dist/vue-nnn-router.js",
@@ -42,7 +50,8 @@
     "spa-routing",
     "directory-router",
     "middleware",
-    "layout"
+    "layout",
+    "redirect"
   ],
   "engines": {
     "node": ">=18"

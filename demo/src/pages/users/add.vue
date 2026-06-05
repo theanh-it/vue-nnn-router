@@ -11,10 +11,7 @@ export function middleware(
     console.log("[demo pages/users/add.vue — middleware]", to.fullPath);
   }
 
-  // test redirect
-  next("/users");
-
-  // next();
+  next();
 }
 </script>
 
