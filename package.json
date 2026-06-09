@@ -1,6 +1,6 @@
 {
   "name": "vue-nnn-router",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "File-based SPA routing for Vue Router 4–5 — build RouteRecordRaw from Vite import.meta.glob (index.vue, _layout.vue, _redirect.ts, [param], _middleware cascade).",
   "homepage": "https://github.com/theanh-it/vue-nnn-router#readme",
   "bugs": {
@@ -20,6 +20,11 @@
       "import": "./dist/vue-nnn-router.js",
       "require": "./dist/vue-nnn-router.cjs"
     },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.js",
+      "require": "./dist/vite.cjs"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -31,12 +36,13 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly",
+    "build": "vite build && vite build --config vite.config.vite.ts && tsc -p tsconfig.build.json --emitDeclarationOnly",
     "test": "vitest run",
     "prepublishOnly": "npm run build && npm test",
     "demo:dev": "npm --prefix ./demo run dev",
     "demo:install": "npm --prefix ./demo install",
-    "demo:build": "npm --prefix ./demo run build"
+    "demo:build": "npm --prefix ./demo run build",
+    "demo:gen-names": "node --input-type=module -e \"import { generateRouterNameFile } from './dist/vite.js'; import { resolve } from 'node:path'; generateRouterNameFile({ root: resolve('demo'), pages: ['src/pages/**/*.{vue,tsx,jsx,ts,js}', 'src/pages/**/_middleware.ts', 'src/pages/**/_redirect.ts'], routesRoot: 'src/pages', outFile: 'src/router/router-name.ts', silent: true });\""
   },
   "keywords": [
     "vite",
@@ -57,11 +63,15 @@
     "node": ">=18"
   },
   "license": "MIT",
+  "dependencies": {
+    "tinyglobby": "^0.2.14"
+  },
   "peerDependencies": {
     "vue": "^3.3.0",
     "vue-router": "^4.2.0 || ^5.0.0"
   },
   "devDependencies": {
+    "@types/node": "^22.15.21",
     "typescript": "~5.7.2",
     "vite": "^6.3.5",
     "vitest": "^3.2.3",

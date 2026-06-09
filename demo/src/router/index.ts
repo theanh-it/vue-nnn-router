@@ -1,16 +1,22 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { createNnnRoutes } from "vue-nnn-router";
+import { createNnnModules, createNnnRoutes } from "vue-nnn-router";
+export { ROUTER_NAME } from "./router-name";
 
-/** Glob neo theo root Vite (demo/): `/...` không phụ thuộc vị trí file router. */
-const modules = import.meta.glob(
-  [
-    "/src/pages/**/*.{vue,tsx,jsx,ts,js}",
-    "/src/pages/**/_middleware.ts",
-  ],
-  { eager: true }
+/** Lazy pages/layouts; eager _middleware + _redirect (recommended split). */
+const lazyViews = import.meta.glob("/src/pages/**/*.{vue,tsx,jsx}");
+
+const eagerSidecars = import.meta.glob(
+  ["/src/pages/**/_middleware.ts", "/src/pages/**/_redirect.ts"],
+  { eager: true },
 );
 
-const routes = createNnnRoutes(modules as Record<string, unknown>, {
+const modules = createNnnModules({
+  views: lazyViews as Record<string, unknown>,
+  eager: eagerSidecars as Record<string, unknown>,
+  silent: !import.meta.env.DEV,
+});
+
+const routes = createNnnRoutes(modules, {
   routesRoot: "src/pages",
   verbose: import.meta.env.DEV,
   silent: false,

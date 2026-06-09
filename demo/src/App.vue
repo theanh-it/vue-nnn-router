@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const links = [
+import { ROUTER_NAME } from "./router/router-name";
+
+const pathLinks = [
   { to: "/", label: "/" },
   { to: "/about", label: "/about" },
   { to: "/users", label: "/users" },
@@ -7,7 +9,12 @@ const links = [
   { to: "/users/demo-123", label: "/users/demo-123" },
   { to: "/settings", label: "/settings → profile" },
   { to: "/settings/notifications", label: "/settings/notifications" },
-];
+  { to: "/admin", label: "/admin → dashboard" },
+] as const;
+
+const nameLinks = [
+  { name: ROUTER_NAME.adminDashboard, label: "ROUTER_NAME.adminDashboard" },
+] as const;
 </script>
 
 <template>
@@ -22,6 +29,11 @@ const links = [
         ,
         <code>_redirect.ts</code>
         ).
+        Demo dùng
+        <strong>lazy</strong>
+        pages +
+        <code>createNnnModules</code>
+        .
         —
         <kbd>npm run dev</kbd>
         trong
@@ -29,9 +41,18 @@ const links = [
       </p>
       <nav class="nav">
         <RouterLink
-          v-for="l in links"
-          :key="l.to"
+          v-for="l in pathLinks"
+          :key="l.label"
           :to="l.to"
+          class="nav-link"
+          active-class="nav-link--active"
+        >
+          {{ l.label }}
+        </RouterLink>
+        <RouterLink
+          v-for="l in nameLinks"
+          :key="l.label"
+          :to="{ name: l.name }"
           class="nav-link"
           active-class="nav-link--active"
         >

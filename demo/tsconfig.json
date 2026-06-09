@@ -17,7 +17,8 @@
     "types": ["vite/client", "node"],
     "baseUrl": ".",
     "paths": {
-      "vue-nnn-router": ["../src/index.ts"]
+      "vue-nnn-router": ["../src/index.ts"],
+      "vue-nnn-router/vite": ["../src/vitePlugin.ts"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "*.ts", "vite.config.ts"],
