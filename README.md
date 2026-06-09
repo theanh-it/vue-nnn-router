@@ -415,12 +415,36 @@ const modules = import.meta.glob(["/src/pages/**/*.vue", "/src/pages/**/_middlew
 createNnnRoutes(modules as Record<string, unknown>, { routesRoot: "src/pages" });
 ```
 
-### Lazy pages + eager middleware (recommended split)
+### Lazy pages + eager sidecars (recommended)
 
-Keeps **`_middleware.ts`** synchronous so cascading guards attach correctly:
+Use **`createNnnModules`** — lazy **`.vue`** / layouts, eager **`_middleware.ts`** and **`_redirect.ts`**. Each zone (`users/`, `admin/`, …) loads only when navigated to.
 
 ```ts
-const lazyViews = import.meta.glob("/src/pages/**/*.vue"); // eager: false implied
+import { createNnnModules, createNnnRoutes } from "vue-nnn-router";
+
+const lazyViews = import.meta.glob("/src/pages/**/*.{vue,tsx,jsx}");
+
+const eagerSidecars = import.meta.glob(
+  ["/src/pages/**/_middleware.ts", "/src/pages/**/_redirect.ts"],
+  { eager: true },
+);
+
+const modules = createNnnModules({
+  views: lazyViews as Record<string, unknown>,
+  eager: eagerSidecars as Record<string, unknown>,
+});
+
+const routes = createNnnRoutes(modules, { routesRoot: "src/pages" });
+```
+
+- **`warnIfEagerPages`** runs automatically (disable with `silent: true`) when all page modules are eager.
+- Folders **with or without** `_layout.vue` both work — lazy applies per matched file.
+- Per-page **`middleware`** in `.vue` still requires that file to be **eager** (prefer `_middleware.ts`).
+
+### Manual merge (same idea)
+
+```ts
+const lazyViews = import.meta.glob("/src/pages/**/*.vue");
 const eagerMw = import.meta.glob("/src/pages/**/_middleware.ts", { eager: true });
 
 const modules = {
@@ -428,9 +452,7 @@ const modules = {
   ...(eagerMw as Record<string, unknown>),
 };
 
-const routes = createNnnRoutes(modules, {
-  routesRoot: "src/pages",
-});
+const routes = createNnnRoutes(modules, { routesRoot: "src/pages" });
 ```
 
 **Note:** Middleware files under **`/src/pages/**`** are usually separate keys from **`.vue`** files — no key collision unless you overlap patterns carelessly.
@@ -441,7 +463,72 @@ const routes = createNnnRoutes(modules, {
 
 Each generated leaf sets **`meta.nnnFile`** to the **original** glob key (before strip), which helps editors and debugger linking.
 
-**Exported helpers:** `createSpaNnnRoutes`, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`isRedirectKey`**, **`redirectDirFromNormKey`**, **`dynamicScore`**.
+### Route `name` (auto-generated)
+
+Every route gets a **`name`** from its **absolute URL path** (after `prefix`), not from Vue `defineOptions({ name })`.
+
+| URL path | `route.name` | `ROUTER_NAME` key (camelCase) |
+|----------|--------------|-------------------------------|
+| `/` | `home` | `home` |
+| `/users/add` | `users-add` | `usersAdd` |
+| `/users/:id` | `users-id` | `usersId` |
+| Layout `/users` | `users-layout` | `usersLayout` |
+| Redirect `/settings` | `settings-redirect` | `settingsRedirect` |
+
+Custom route names are **not** configurable yet — use **`collectRouteNames`**, **`createNnnRoutesWithNames`**, or the Vite plugin below.
+
+### `ROUTER_NAME` constants (camelCase)
+
+**Runtime:**
+
+```ts
+import { createNnnRoutesWithNames } from "vue-nnn-router";
+
+const { routes, routeNames } = createNnnRoutesWithNames(modules, {
+  routesRoot: "src/pages",
+});
+
+router.push({ name: routeNames.usersAdd });
+```
+
+**Generated file** (dev/build) via Vite plugin:
+
+```ts
+// vite.config.ts
+import { vueNnnRouterNamesPlugin } from "vue-nnn-router/vite";
+
+export default defineConfig({
+  plugins: [
+    vueNnnRouterNamesPlugin({
+      pages: [
+        "src/pages/**/*.{vue,tsx,jsx,ts,js}",
+        "src/pages/**/_middleware.ts",
+        "src/pages/**/_redirect.ts",
+      ],
+      routesRoot: "src/pages",
+      outFile: "src/router/router-name.ts", // optional — default
+    }),
+  ],
+});
+```
+
+Output:
+
+```ts
+export const ROUTER_NAME = {
+  home: "home",
+  usersAdd: "users-add",
+  usersLayout: "users-layout",
+} as const;
+```
+
+```ts
+import { ROUTER_NAME } from "@/router/router-name";
+
+router.push({ name: ROUTER_NAME.usersAdd });
+```
+
+**Exported helpers:** `createNnnModules`, **`warnIfEagerPages`**, `createSpaNnnRoutes`, `createNnnRoutesWithNames`, **`collectRouteNames`**, **`routeNameToCamelKey`**, **`formatRouterNameModule`**, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`isRedirectKey`**, **`redirectDirFromNormKey`**, **`dynamicScore`**, **`isLazyGlobModule`**, **`isEagerPageModule`**. Vite: **`vueNnnRouterNamesPlugin`** from **`vue-nnn-router/vite`**. Constants: **`NNN_LAZY_VIEW_GLOBS`**, **`NNN_EAGER_SIDECAR_GLOBS`**.
 
 ---
 

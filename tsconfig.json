@@ -10,7 +10,7 @@
     "noEmit": true,
     "esModuleInterop": true,
     "lib": ["ES2022", "DOM"],
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals", "node"]
   },
   "include": ["src/**/*", "tests/**/*.ts", "vite.config.ts", "vitest.config.ts"],
   "exclude": ["dist", "node_modules"]

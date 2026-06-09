@@ -415,12 +415,36 @@ const modules = import.meta.glob(["/src/pages/**/*.vue", "/src/pages/**/_middlew
 createNnnRoutes(modules as Record<string, unknown>, { routesRoot: "src/pages" });
 ```
 
-### Trang lazy + middleware eager (chia tách nên dùng)
+### Trang lazy + sidecar eager (nên dùng)
 
-Giữ **`_middleware.ts`** nạp sẵn để cascade guard vẫn gắn đồng bộ:
+Dùng **`createNnnModules`** — lazy **`.vue`** / layout, eager **`_middleware.ts`** và **`_redirect.ts`**. Mỗi vùng (`users/`, `admin/`, …) chỉ tải khi navigate tới.
 
 ```ts
-const lazyViews = import.meta.glob("/src/pages/**/*.vue"); // mặc định lazy
+import { createNnnModules, createNnnRoutes } from "vue-nnn-router";
+
+const lazyViews = import.meta.glob("/src/pages/**/*.{vue,tsx,jsx}");
+
+const eagerSidecars = import.meta.glob(
+  ["/src/pages/**/_middleware.ts", "/src/pages/**/_redirect.ts"],
+  { eager: true },
+);
+
+const modules = createNnnModules({
+  views: lazyViews as Record<string, unknown>,
+  eager: eagerSidecars as Record<string, unknown>,
+});
+
+const routes = createNnnRoutes(modules, { routesRoot: "src/pages" });
+```
+
+- **`warnIfEagerPages`** tự chạy (tắt bằng `silent: true`) khi mọi page đều eager.
+- Thư mục **có hoặc không** `_layout.vue` đều dùng lazy bình thường.
+- **`middleware`** export trong `.vue` vẫn cần file đó **eager** (nên dùng `_middleware.ts`).
+
+### Gộp tay (cùng ý tưởng)
+
+```ts
+const lazyViews = import.meta.glob("/src/pages/**/*.vue");
 const eagerMw = import.meta.glob("/src/pages/**/_middleware.ts", { eager: true });
 
 const modules = {
@@ -428,9 +452,7 @@ const modules = {
   ...(eagerMw as Record<string, unknown>),
 };
 
-const routes = createNnnRoutes(modules, {
-  routesRoot: "src/pages",
-});
+const routes = createNnnRoutes(modules, { routesRoot: "src/pages" });
 ```
 
 Key **`.vue`** và **`_middleware.ts`** thường **không** trùng tên trong map — chỉ va chạm nếu khai báo pattern chồng lấn vô ích.
@@ -441,7 +463,72 @@ Key **`.vue`** và **`_middleware.ts`** thường **không** trùng tên trong m
 
 Mỗi lá route có **`meta.nnnFile`** = **key glob gốc** (trước `stripRoutesRoot`), tiện nhảy vào file trong IDE/debug.
 
-**Export tiện ích:** `createSpaNnnRoutes`, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`isRedirectKey`**, **`redirectDirFromNormKey`**, **`dynamicScore`**.
+### `route.name` (tự sinh)
+
+Mỗi route có **`name`** từ **URL tuyệt đối** (sau `prefix`), **không** lấy từ `defineOptions({ name })` trong Vue.
+
+| Path URL | `route.name` | Key `ROUTER_NAME` (camelCase) |
+|----------|--------------|-------------------------------|
+| `/` | `home` | `home` |
+| `/users/add` | `users-add` | `usersAdd` |
+| `/users/:id` | `users-id` | `usersId` |
+| Layout `/users` | `users-layout` | `usersLayout` |
+| Redirect `/settings` | `settings-redirect` | `settingsRedirect` |
+
+Chưa hỗ trợ đặt tên tùy chỉnh — dùng **`collectRouteNames`**, **`createNnnRoutesWithNames`**, hoặc Vite plugin bên dưới.
+
+### Hằng số `ROUTER_NAME` (camelCase)
+
+**Runtime:**
+
+```ts
+import { createNnnRoutesWithNames } from "vue-nnn-router";
+
+const { routes, routeNames } = createNnnRoutesWithNames(modules, {
+  routesRoot: "src/pages",
+});
+
+router.push({ name: routeNames.usersAdd });
+```
+
+**Sinh file** (dev/build) bằng Vite plugin:
+
+```ts
+// vite.config.ts
+import { vueNnnRouterNamesPlugin } from "vue-nnn-router/vite";
+
+export default defineConfig({
+  plugins: [
+    vueNnnRouterNamesPlugin({
+      pages: [
+        "src/pages/**/*.{vue,tsx,jsx,ts,js}",
+        "src/pages/**/_middleware.ts",
+        "src/pages/**/_redirect.ts",
+      ],
+      routesRoot: "src/pages",
+      outFile: "src/router/router-name.ts", // tùy chọn — mặc định
+    }),
+  ],
+});
+```
+
+Kết quả:
+
+```ts
+export const ROUTER_NAME = {
+  home: "home",
+  usersAdd: "users-add",
+  usersLayout: "users-layout",
+} as const;
+```
+
+```ts
+import { ROUTER_NAME } from "@/router/router-name";
+
+router.push({ name: ROUTER_NAME.usersAdd });
+```
+
+**Export tiện ích:** `createNnnModules`, **`warnIfEagerPages`**, `createSpaNnnRoutes`, `createNnnRoutesWithNames`, **`collectRouteNames`**, **`routeNameToCamelKey`**, **`formatRouterNameModule`**, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`isRedirectKey`**, **`redirectDirFromNormKey`**, **`dynamicScore`**, **`isLazyGlobModule`**, **`isEagerPageModule`**. Vite: **`vueNnnRouterNamesPlugin`** từ **`vue-nnn-router/vite`**. Hằng số: **`NNN_LAZY_VIEW_GLOBS`**, **`NNN_EAGER_SIDECAR_GLOBS`**.
 
 ---
 
