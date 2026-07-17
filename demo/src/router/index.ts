@@ -3,16 +3,27 @@ import { createNnnModules, createNnnRoutes } from "vue-nnn-router";
 export { ROUTER_NAME } from "./router-name";
 
 /** Lazy pages/layouts; eager _middleware + _redirect (recommended split). */
-const lazyViews = import.meta.glob("/src/pages/**/*.{vue,tsx,jsx}");
+const lazyViews = import.meta.glob([
+  "/src/pages/**/*.{vue,tsx,jsx}",
+  "!/src/pages/users/add.vue",
+]);
 
 const eagerSidecars = import.meta.glob(
   ["/src/pages/**/_middleware.ts", "/src/pages/**/_redirect.ts"],
   { eager: true },
 );
 
+/** Page này export middleware riêng, nên phải eager để đọc được named export đó. */
+const eagerRouteMiddleware = import.meta.glob("/src/pages/users/add.vue", {
+  eager: true,
+});
+
 const modules = createNnnModules({
   views: lazyViews as Record<string, unknown>,
-  eager: eagerSidecars as Record<string, unknown>,
+  eager: {
+    ...(eagerSidecars as Record<string, unknown>),
+    ...(eagerRouteMiddleware as Record<string, unknown>),
+  },
   silent: !import.meta.env.DEV,
 });
 

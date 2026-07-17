@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import type { Plugin } from "vite";
+import { createFilter, type Plugin } from "vite";
 import { globSync } from "tinyglobby";
 import type { CreateNnnRoutesOptions } from "./types";
 import { createSpaNnnRoutes } from "./spaRoutes";
@@ -57,12 +57,30 @@ export function generateRouterNameFile(
   writeFileSync(outPath, content, "utf8");
 }
 
-function shouldRegenerate(file: string): boolean {
-  const n = file.replace(/\\/g, "/");
-  return (
-    /\/pages\//.test(n) &&
-    (/\.(vue|tsx|jsx|ts|js)$/i.test(n) || /_middleware\.(ts|js)$/i.test(n) || /_redirect\.(ts|js)$/i.test(n))
-  );
+function normalizeFilterPattern(pattern: string): string {
+  let p = pattern.replace(/\\/g, "/");
+  while (p.startsWith("./")) p = p.slice(2);
+  return p.replace(/^\/+/, "");
+}
+
+function createPagesFilter(
+  pages: string | string[],
+  root: string,
+): (file: string) => boolean {
+  const patterns = Array.isArray(pages) ? pages : [pages];
+  const include: string[] = [];
+  const exclude: string[] = [];
+
+  for (const rawPattern of patterns) {
+    const negated = rawPattern.startsWith("!");
+    const pattern = normalizeFilterPattern(
+      negated ? rawPattern.slice(1) : rawPattern,
+    );
+    if (!pattern) continue;
+    (negated ? exclude : include).push(pattern);
+  }
+
+  return createFilter(include, exclude, { resolve: root });
 }
 
 /** Vite plugin — writes `router-name.ts` (default) with camelCase keys at dev/build time. */
@@ -70,6 +88,7 @@ export function vueNnnRouterNamesPlugin(
   options: VueNnnRouterNamesPluginOptions,
 ): Plugin {
   let viteRoot = options.root ?? process.cwd();
+  let isPageFile = createPagesFilter(options.pages, viteRoot);
 
   const run = () => {
     generateRouterNameFile({ ...options, root: viteRoot });
@@ -79,6 +98,7 @@ export function vueNnnRouterNamesPlugin(
     name: "vue-nnn-router-names",
     configResolved(config) {
       viteRoot = options.root ?? config.root;
+      isPageFile = createPagesFilter(options.pages, viteRoot);
     },
     buildStart() {
       run();
@@ -87,7 +107,7 @@ export function vueNnnRouterNamesPlugin(
       run();
     },
     handleHotUpdate(ctx) {
-      if (shouldRegenerate(ctx.file)) {
+      if (isPageFile(ctx.file)) {
         run();
         return ctx.modules;
       }
