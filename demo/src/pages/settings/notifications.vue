@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import { defineNnnScroll } from "vue-nnn-router";
+
 defineOptions({ name: "SettingsNotificationsRoute" });
+
+defineNnnScroll({ top: 80, smooth: true });
 </script>
 
 <template>

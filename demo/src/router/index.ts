@@ -1,5 +1,10 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { createNnnModules, createNnnRoutes } from "vue-nnn-router";
+import {
+  createNnnModules,
+  createNnnRoutes,
+  createNnnScrollBehavior,
+} from "vue-nnn-router";
+import { NNN_SCROLL } from "./router-scroll";
 export { ROUTER_NAME } from "./router-name";
 
 /** Lazy pages/layouts; eager _middleware + _redirect (recommended split). */
@@ -36,4 +41,5 @@ const routes = createNnnRoutes(modules, {
 export const router = createRouter({
   history: createWebHistory(),
   routes,
+  scrollBehavior: createNnnScrollBehavior({ smooth: true, scrollMap: NNN_SCROLL }),
 });

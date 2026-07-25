@@ -19,6 +19,14 @@ export {
   NNN_LAZY_VIEW_GLOBS,
 } from "./globModules";
 export type { CreateNnnModulesOptions, WarnIfEagerPagesOptions } from "./globModules";
+export { createNnnScrollBehavior } from "./scrollBehavior";
+export type { NnnScrollBehaviorOptions } from "./scrollBehavior";
+export {
+  defineNnnScroll,
+  normalizeNnnScroll,
+  toNnnScrollMeta,
+} from "./scrollMeta";
+export type { NnnScrollMeta, NnnScrollMap } from "./scrollMeta";
 export {
   createSpaNnnRoutes,
   pathNoExt,

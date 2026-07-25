@@ -2,7 +2,10 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { vueNnnRouterNamesPlugin } from "../src/vitePlugin";
+import {
+  vueNnnRouterNamesPlugin,
+  vueNnnRouterScrollPlugin,
+} from "../src/vitePlugin";
 
 const demoDir = dirname(fileURLToPath(import.meta.url));
 
@@ -17,6 +20,11 @@ export default defineConfig({
       ],
       routesRoot: "src/pages",
       outFile: "src/router/router-name.ts",
+      silent: true,
+    }) as import("vite").PluginOption,
+    vueNnnRouterScrollPlugin({
+      pages: ["src/pages/**/*.{vue,tsx,jsx}"],
+      outFile: "src/router/router-scroll.ts",
       silent: true,
     }) as import("vite").PluginOption,
   ],

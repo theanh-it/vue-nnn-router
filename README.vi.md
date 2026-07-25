@@ -15,8 +15,9 @@
 7. Middleware (theo thư mục và theo trang)
 8. Glob eager vs lazy
 9. Meta route & tiện ích
-10. Chạy demo trong repo này
-11. Gói npm & giấy phép
+10. Hành vi cuộn trang
+11. Chạy demo trong repo này
+12. Gói npm & giấy phép
 
 ## Vì sao dùng glob, không đọc filesystem?
 
@@ -528,7 +529,87 @@ import { ROUTER_NAME } from "@/router/router-name";
 router.push({ name: ROUTER_NAME.usersAdd });
 ```
 
-**Export tiện ích:** `createNnnModules`, **`warnIfEagerPages`**, `createSpaNnnRoutes`, `createNnnRoutesWithNames`, **`collectRouteNames`**, **`routeNameToCamelKey`**, **`formatRouterNameModule`**, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`isRedirectKey`**, **`redirectDirFromNormKey`**, **`dynamicScore`**, **`isLazyGlobModule`**, **`isEagerPageModule`**. Vite: **`vueNnnRouterNamesPlugin`** từ **`vue-nnn-router/vite`**. Hằng số: **`NNN_LAZY_VIEW_GLOBS`**, **`NNN_EAGER_SIDECAR_GLOBS`**.
+**Export tiện ích:** `createNnnModules`, **`warnIfEagerPages`**, `createSpaNnnRoutes`, `createNnnRoutesWithNames`, **`collectRouteNames`**, **`routeNameToCamelKey`**, **`formatRouterNameModule`**, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`isRedirectKey`**, **`redirectDirFromNormKey`**, **`dynamicScore`**, **`isLazyGlobModule`**, **`isEagerPageModule`**, **`createNnnScrollBehavior`**, **`defineNnnScroll`**, **`toNnnScrollMeta`**, **`normalizeNnnScroll`**. Vite: **`vueNnnRouterNamesPlugin`**, **`vueNnnRouterScrollPlugin`** từ **`vue-nnn-router/vite`**. Hằng số: **`NNN_LAZY_VIEW_GLOBS`**, **`NNN_EAGER_SIDECAR_GLOBS`**.
+
+---
+
+## Hành vi cuộn trang
+
+**`createNnnScrollBehavior`** tạo một [`scrollBehavior`](https://router.vuejs.org/guide/advanced/scroll-behavior.html) cho Vue Router: cuộn lên đầu trang mỗi lần chuyển trang, có thể bật hiệu ứng cuộn mượt.
+
+```ts
+import { createRouter, createWebHistory } from "vue-router";
+import { createNnnScrollBehavior } from "vue-nnn-router";
+
+export const router = createRouter({
+  history: createWebHistory(),
+  routes,
+  scrollBehavior: createNnnScrollBehavior({ smooth: true }),
+});
+```
+
+### Tùy chọn
+
+| Tùy chọn | Kiểu | Mặc định | Mô tả |
+|----------|------|----------|-------|
+| `smooth` | `boolean` | `false` | Cuộn mượt thay vì nhảy tức thì. |
+| `restorePosition` | `boolean` | `true` | Khôi phục vị trí đã lưu khi nhấn Back/Forward. |
+| `scrollToHash` | `boolean` | `true` | Cuộn tới phần tử anchor `to.hash` nếu có. |
+| `skipMetaKey` | `string \| false` | `"noScroll"` | Bỏ qua cuộn khi `route.meta[key]` truthy; `false` để tắt hẳn. |
+| `top` | `number` | `0` | Offset px tính từ đỉnh (ví dụ chiều cao header sticky). |
+| `left` | `number` | `0` | Offset px theo chiều ngang. |
+| `scrollMap` | `NnnScrollMap` | – | Override theo từng trang do `vueNnnRouterScrollPlugin` sinh ra. |
+
+### Cấu hình theo từng trang với `defineNnnScroll`
+
+Khai báo hành vi cuộn cho một trang chỉ bằng **một dòng** trong `<script setup>` — không cần nhớ namespace `meta.nnnScroll`:
+
+```vue
+<script setup lang="ts">
+import { defineNnnScroll } from "vue-nnn-router";
+
+defineNnnScroll({ top: 80, smooth: true }); // trang này: lệch 80px + cuộn mượt
+// defineNnnScroll(false);                   // trang này: không bao giờ cuộn
+</script>
+```
+
+Cách này cần Vite plugin: nó trích mỗi lời gọi `defineNnnScroll(...)` lúc dev/build vào file map `router-scroll.ts` (khóa theo file trang). Tham số phải là **literal object hoặc boolean** (phân tích tĩnh được — không dùng biến hay biểu thức).
+
+```ts
+// vite.config.ts
+import { vueNnnRouterScrollPlugin } from "vue-nnn-router/vite";
+
+export default defineConfig({
+  plugins: [
+    vueNnnRouterScrollPlugin({
+      pages: ["src/pages/**/*.{vue,tsx,jsx}"],
+      outFile: "src/router/router-scroll.ts", // mặc định
+    }),
+  ],
+});
+```
+
+```ts
+// router.ts — truyền map đã sinh vào behavior
+import { createNnnScrollBehavior } from "vue-nnn-router";
+import { NNN_SCROLL } from "./router-scroll";
+
+scrollBehavior: createNnnScrollBehavior({ smooth: true, scrollMap: NNN_SCROLL });
+```
+
+Bên trong, cấu hình được lưu dưới `route.meta.nnnScroll` (đặt namespace để **tránh xung đột** với thư viện khác). Nếu không dùng plugin, có thể set thủ công — `meta: { ...toNnnScrollMeta({ top: 80 }) }` — nhưng `defineNnnScroll` là cách gọn nhất được khuyến nghị.
+
+Các field `NnnScrollMeta`: `enabled` (`false` = trang này không cuộn), `smooth`, `top`, `left`, `scrollToHash`, `restorePosition`. Field nào bỏ trống sẽ lấy theo tùy chọn global.
+
+### Bỏ qua cuộn cho từng trang (cách cũ)
+
+Cờ meta cũ vẫn hoạt động để giữ nguyên vị trí cuộn khi chuyển trang:
+
+```ts
+meta: { noScroll: true }
+```
+
+Thứ tự ưu tiên: opt-out `skipMetaKey` → `nnnScroll.enabled === false` → override theo trang gộp lên global → vị trí đã lưu (Back/Forward) → anchor `to.hash` → cuộn lên đầu.
 
 ---
 

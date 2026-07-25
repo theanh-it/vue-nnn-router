@@ -21,4 +21,6 @@ export interface CreateNnnRoutesOptions {
 export type NnnRouteMeta = {
   /** Đường dẫn file route (key trong glob) — tiện debug. */
   nnnFile?: string;
+  /** Per-page scroll config (namespaced để tránh xung đột thư viện khác). */
+  nnnScroll?: import("./scrollMeta").NnnScrollMeta;
 };
