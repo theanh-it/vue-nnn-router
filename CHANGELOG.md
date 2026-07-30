@@ -2,6 +2,13 @@
 
 **Versioning:** while in **`0.x`** the package is in early development and breaking changes may occur in any minor release. Starting from **`1.0.0`**, this package will use **semver major aligned with Vue Router** — **`vue-nnn-router` 4.x** will target **Vue Router 4.x**, and when Vue Router 5 exists, expect **`vue-nnn-router` 5.x** with a Vue Router 5 peer.
 
+## [0.0.6] - 2026-07-30
+
+### Fixed
+
+- Keep `routesRoot`, `prefix`, and `silent` optional in the public `vueNnnRouterNamesPlugin` options type.
+- Smoke-test the ESM and CJS exports of `vueNnnRouterScrollPlugin`.
+
 ## [0.0.5] - 2026-07-25
 
 ### Added
@@ -58,6 +65,7 @@ Initial public release.
 - Cascading `_middleware.ts` and optional per-route `middleware` export (eager glob).
 - Helpers: `simplifyGlobKey`, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`.
 
+[0.0.6]: https://www.npmjs.com/package/vue-nnn-router/v/0.0.6
 [0.0.5]: https://www.npmjs.com/package/vue-nnn-router/v/0.0.5
 [0.0.4]: https://www.npmjs.com/package/vue-nnn-router/v/0.0.4
 [0.0.3]: https://www.npmjs.com/package/vue-nnn-router/v/0.0.3

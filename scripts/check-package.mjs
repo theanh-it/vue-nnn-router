@@ -43,5 +43,13 @@ assert(
   typeof cjsVite.vueNnnRouterNamesPlugin === "function",
   "CJS Vite plugin export is missing",
 );
+assert(
+  typeof esmVite.vueNnnRouterScrollPlugin === "function",
+  "ESM Vite scroll plugin export is missing",
+);
+assert(
+  typeof cjsVite.vueNnnRouterScrollPlugin === "function",
+  "CJS Vite scroll plugin export is missing",
+);
 
 console.log("[package smoke] exports and artifacts are valid");

@@ -19,7 +19,13 @@ export type VueNnnRouterNamesPluginOptions = {
   pages: string | string[];
   /** Output file path relative to `root` (default: `src/router/router-name.ts`). */
   outFile?: string;
-} & Pick<CreateNnnRoutesOptions, "routesRoot" | "prefix" | "silent">;
+  /** Prefix removed from page glob keys before routes are generated. */
+  routesRoot?: CreateNnnRoutesOptions["routesRoot"];
+  /** URL path prefix applied to generated routes. */
+  prefix?: CreateNnnRoutesOptions["prefix"];
+  /** Suppress route-generation warnings (default: `true`). */
+  silent?: CreateNnnRoutesOptions["silent"];
+};
 
 function normalizeGlobKey(file: string): string {
   let k = file.replace(/\\/g, "/");
