@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   generateRouterNameFile,
+  generateRouterScrollFile,
   vueNnnRouterNamesPlugin,
 } from "../src/vitePlugin";
-import { readFileSync, mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -14,23 +21,35 @@ describe("generateRouterNameFile", () => {
       mkdirSync(join(root, "src/pages/users"), { recursive: true });
       writeFileSync(join(root, "src/pages/users/_layout.vue"), "<template/>");
       writeFileSync(join(root, "src/pages/users/add.vue"), "<template/>");
-      writeFileSync(join(root, "src/pages/users/_redirect.ts"), "export default 'add'");
+      writeFileSync(
+        join(root, "src/pages/users/_redirect.ts"),
+        "export default 'add'",
+      );
 
-      generateRouterNameFile({
+      const options = {
         root,
         pages: ["src/pages/**/*.vue", "src/pages/**/_redirect.ts"],
         routesRoot: "src/pages",
         outFile: "src/router/router-name.ts",
         silent: true,
-      });
+      };
 
-      const content = readFileSync(
-        join(root, "src/router/router-name.ts"),
-        "utf8",
-      );
+      expect(generateRouterNameFile(options)).toBe(true);
+
+      const outputPath = join(root, "src/router/router-name.ts");
+      const content = readFileSync(outputPath, "utf8");
       expect(content).toContain("usersLayout");
       expect(content).toContain("usersAdd");
       expect(content).toContain("usersRedirect");
+
+      expect(generateRouterNameFile(options)).toBe(false);
+      expect(readFileSync(outputPath, "utf8")).toBe(content);
+
+      writeFileSync(join(root, "src/pages/users/edit.vue"), "<template/>");
+      expect(generateRouterNameFile(options)).toBe(true);
+      const updatedContent = readFileSync(outputPath, "utf8");
+      expect(updatedContent).not.toBe(content);
+      expect(updatedContent).toContain('usersEdit: "users-edit"');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -107,6 +126,47 @@ describe("generateRouterNameFile", () => {
         hooks.handleHotUpdate({ file: ignoredFile, modules: [] }),
       ).toBeUndefined();
       expect(readFileSync(outFile, "utf8")).toBe(beforeIgnoredUpdate);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("generateRouterScrollFile", () => {
+  it("chỉ ghi router-scroll.ts khi nội dung thay đổi", () => {
+    const root = mkdtempSync(join(tmpdir(), "nnn-scroll-"));
+    try {
+      const pagesDir = join(root, "src/pages");
+      mkdirSync(pagesDir, { recursive: true });
+      const pagePath = join(pagesDir, "index.vue");
+      writeFileSync(
+        pagePath,
+        "<script setup>defineNnnScroll({ top: 40 })</script>",
+      );
+
+      const options = {
+        root,
+        pages: "src/pages/**/*.vue",
+        outFile: "src/router/router-scroll.ts",
+        silent: true,
+      };
+
+      expect(generateRouterScrollFile(options)).toBe(true);
+      const outputPath = join(root, "src/router/router-scroll.ts");
+      const content = readFileSync(outputPath, "utf8");
+      expect(content).toContain('{"top":40}');
+
+      expect(generateRouterScrollFile(options)).toBe(false);
+      expect(readFileSync(outputPath, "utf8")).toBe(content);
+
+      writeFileSync(
+        pagePath,
+        "<script setup>defineNnnScroll({ top: 80 })</script>",
+      );
+      expect(generateRouterScrollFile(options)).toBe(true);
+      const updatedContent = readFileSync(outputPath, "utf8");
+      expect(updatedContent).not.toBe(content);
+      expect(updatedContent).toContain('{"top":80}');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

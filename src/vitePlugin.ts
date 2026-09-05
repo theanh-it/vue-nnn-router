@@ -1,5 +1,5 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createFilter, type Plugin } from "vite";
 import { globSync } from "tinyglobby";
 import type { CreateNnnRoutesOptions } from "./types";
@@ -11,6 +11,7 @@ import {
 import { simplifyGlobKey } from "./globUtils";
 import { extractNnnScroll, formatScrollMapModule } from "./scrollExtract";
 import type { NnnScrollMap } from "./scrollMeta";
+import { writeFileIfChanged } from "./writeFileIfChanged";
 
 export type VueNnnRouterNamesPluginOptions = {
   /** Project root (default: Vite config root). */
@@ -49,7 +50,7 @@ function modulesFromGlobFiles(files: string[]): Record<string, unknown> {
 
 export function generateRouterNameFile(
   options: VueNnnRouterNamesPluginOptions & { root: string },
-): void {
+): boolean {
   const patterns = Array.isArray(options.pages) ? options.pages : [options.pages];
   const files = globSync(patterns, { cwd: options.root, onlyFiles: true });
   const modules = modulesFromGlobFiles(files);
@@ -62,8 +63,7 @@ export function generateRouterNameFile(
   const outFile = options.outFile ?? "src/router/router-name.ts";
   const content = formatRouterNameModule(names);
   const outPath = resolve(options.root, outFile);
-  mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, content, "utf8");
+  return writeFileIfChanged(outPath, content);
 }
 
 function normalizeFilterPattern(pattern: string): string {
@@ -166,12 +166,11 @@ export function buildScrollMap(
 /** Write `router-scroll.ts` exporting the `NNN_SCROLL` map. */
 export function generateRouterScrollFile(
   options: VueNnnRouterScrollPluginOptions & { root: string },
-): void {
+): boolean {
   const map = buildScrollMap(options);
   const outFile = options.outFile ?? "src/router/router-scroll.ts";
   const outPath = resolve(options.root, outFile);
-  mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, formatScrollMapModule(map), "utf8");
+  return writeFileIfChanged(outPath, formatScrollMapModule(map));
 }
 
 /**
