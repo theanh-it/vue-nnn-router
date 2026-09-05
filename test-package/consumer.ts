@@ -1,4 +1,8 @@
-import { createNnnRoutes } from "vue-nnn-router";
+import {
+  createNnnProgress,
+  createNnnRoutes,
+  type NnnProgressOptions,
+} from "vue-nnn-router";
 import {
   vueNnnRouterNamesPlugin,
   vueNnnRouterScrollPlugin,
@@ -20,6 +24,13 @@ const scrollOptions = {
   pages: "src/pages/**/*.{vue,tsx,jsx}",
 } satisfies VueNnnRouterScrollPluginOptions;
 
+const progressOptions = {
+  enabled: true,
+  delay: 120,
+} satisfies NnnProgressOptions;
+
 void createNnnRoutes;
+void createNnnProgress;
+void progressOptions;
 void vueNnnRouterNamesPlugin(namesOptions);
 void vueNnnRouterScrollPlugin(scrollOptions);

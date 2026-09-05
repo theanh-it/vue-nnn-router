@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import {
   createNnnModules,
+  createNnnProgress,
   createNnnRoutes,
   createNnnScrollBehavior,
 } from "vue-nnn-router";
@@ -41,5 +42,19 @@ const routes = createNnnRoutes(modules, {
 export const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior: createNnnScrollBehavior({ smooth: true, scrollMap: NNN_SCROLL }),
+  scrollBehavior: createNnnScrollBehavior({
+    smooth: true,
+    scrollMap: NNN_SCROLL,
+  }),
 });
+
+const progress = createNnnProgress(router, {
+  enabled: true,
+  color: "green",
+  height: 1,
+  // Demo: hiện ngay; hoàn tất đúng lúc lazy navigation resolve xong.
+  delay: 0,
+  minimumVisible: 0,
+});
+
+if (import.meta.hot) import.meta.hot.dispose(() => progress.destroy());

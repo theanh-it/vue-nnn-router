@@ -14,10 +14,11 @@
 6. Tùy chọn `createNnnRoutes` (có ví dụ từng mục)
 7. Middleware (theo thư mục và theo trang)
 8. Glob eager vs lazy
-9. Meta route & tiện ích
-10. Hành vi cuộn trang
-11. Chạy demo trong repo này
-12. Gói npm & giấy phép
+9. Progress bar khi chuyển trang
+10. Meta route & tiện ích
+11. Hành vi cuộn trang
+12. Chạy demo trong repo này
+13. Gói npm & giấy phép
 
 ## Vì sao dùng glob, không đọc filesystem?
 
@@ -460,6 +461,52 @@ Key **`.vue`** và **`_middleware.ts`** thường **không** trùng tên trong m
 
 ---
 
+## Progress bar khi chuyển trang
+
+**`createNnnProgress`** gắn một progress bar `position: fixed` vào Vue Router. Thanh bắt đầu trước khi Vue Router resolve lazy component và hoàn tất trong `afterEach`; lỗi, navigation bị huỷ/redirect và nhiều navigation chồng nhau đều được dọn đúng trạng thái.
+
+```ts
+import { createRouter, createWebHistory } from "vue-router";
+import { createNnnProgress } from "vue-nnn-router";
+
+export const router = createRouter({
+  history: createWebHistory(),
+  routes,
+});
+
+createNnnProgress(router, {
+  enabled: true,
+  color: "#ff4d00",
+  height: 3,
+  position: "top",
+  delay: 120,
+});
+```
+
+Ứng dụng SPA thông thường **không cần tạo biến**. Hàm trả về một cleanup handle; chỉ giữ handle khi cần gỡ hooks/DOM trong test, micro-frontend hoặc HMR:
+
+```ts
+const progress = createNnnProgress(router);
+// Khi huỷ router:
+progress.destroy();
+```
+
+Thanh bắt đầu ở **0%**, tiến ước lượng tới tối đa **90%** trong lúc navigation đang chạy và lên **100%** khi Vue Router xác nhận hoàn tất. `import()` không cung cấp số byte đã tải, vì vậy phần trước 100% là phản hồi trực quan chứ không phải phần trăm network thực tế.
+
+Không cần CSS hay dependency ngoài. Với mặc định `delay: 120`, navigation nhanh không tạo DOM; animation dài chạy bằng CSS/compositor thay vì timer lặp. `enabled: false` không đăng ký router hook và không tạo DOM.
+
+| Tùy chọn | Kiểu | Mặc định | Mô tả |
+|----------|------|----------|-------|
+| `enabled` | `boolean` | `true` | Bật/tắt hoàn toàn progress bar. |
+| `color` | `string` | `"#ff4d00"` | Màu thanh và glow. |
+| `height` | `number \| string` | `3` | Độ dày; number được hiểu là px. |
+| `position` | `"top" \| "bottom"` | `"top"` | Cạnh viewport để cố định thanh. |
+| `delay` | `number` | `120` | Số ms chờ trước khi hiện, tránh nhấp nháy. |
+| `minimumVisible` | `number` | `0` | Giữ thanh thêm tối thiểu bao nhiêu ms; tăng giá trị này sẽ làm thời điểm hoàn tất trễ hơn page. |
+| `zIndex` | `number` | `2147483647` | Lớp hiển thị của thanh. |
+
+---
+
 ## Meta route & tiện ích
 
 Mỗi lá route có **`meta.nnnFile`** = **key glob gốc** (trước `stripRoutesRoot`), tiện nhảy vào file trong IDE/debug.
@@ -529,7 +576,7 @@ import { ROUTER_NAME } from "@/router/router-name";
 router.push({ name: ROUTER_NAME.usersAdd });
 ```
 
-**Export tiện ích:** `createNnnModules`, **`warnIfEagerPages`**, `createSpaNnnRoutes`, `createNnnRoutesWithNames`, **`collectRouteNames`**, **`routeNameToCamelKey`**, **`formatRouterNameModule`**, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`isRedirectKey`**, **`redirectDirFromNormKey`**, **`dynamicScore`**, **`isLazyGlobModule`**, **`isEagerPageModule`**, **`createNnnScrollBehavior`**, **`defineNnnScroll`**, **`toNnnScrollMeta`**, **`normalizeNnnScroll`**. Vite: **`vueNnnRouterNamesPlugin`**, **`vueNnnRouterScrollPlugin`** từ **`vue-nnn-router/vite`**. Hằng số: **`NNN_LAZY_VIEW_GLOBS`**, **`NNN_EAGER_SIDECAR_GLOBS`**.
+**Export tiện ích:** `createNnnModules`, **`warnIfEagerPages`**, **`createNnnProgress`**, `createSpaNnnRoutes`, `createNnnRoutesWithNames`, **`collectRouteNames`**, **`routeNameToCamelKey`**, **`formatRouterNameModule`**, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`isRedirectKey`**, **`redirectDirFromNormKey`**, **`dynamicScore`**, **`isLazyGlobModule`**, **`isEagerPageModule`**, **`createNnnScrollBehavior`**, **`defineNnnScroll`**, **`toNnnScrollMeta`**, **`normalizeNnnScroll`**. Vite: **`vueNnnRouterNamesPlugin`**, **`vueNnnRouterScrollPlugin`** từ **`vue-nnn-router/vite`**. Hằng số: **`NNN_LAZY_VIEW_GLOBS`**, **`NNN_EAGER_SIDECAR_GLOBS`**.
 
 ---
 

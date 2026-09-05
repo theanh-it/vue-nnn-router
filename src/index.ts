@@ -27,6 +27,11 @@ export {
   toNnnScrollMeta,
 } from "./scrollMeta";
 export type { NnnScrollMeta, NnnScrollMap } from "./scrollMeta";
+export { createNnnProgress } from "./progress";
+export type {
+  NnnProgressHandle,
+  NnnProgressOptions,
+} from "./progress";
 export {
   createSpaNnnRoutes,
   pathNoExt,

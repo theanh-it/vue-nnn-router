@@ -14,10 +14,11 @@ File-based routing for **[Vue Router](https://router.vuejs.org/)** (**4.x** or *
 6. [`createNnnRoutes` options (with examples)](#creatennroutes-options-with-examples)
 7. [Middleware (directory + per-route)](#middleware-directory--per-route)
 8. [Eager vs lazy `import.meta.glob`](#eager-vs-lazy-importmetaglob)
-9. [Route meta & utilities](#route-meta--utilities)
-10. [Scroll behavior](#scroll-behavior)
-11. [Run the demo](#run-the-demo-this-repo)
-12. [Package & license](#package)
+9. [Navigation progress bar](#navigation-progress-bar)
+10. [Route meta & utilities](#route-meta--utilities)
+11. [Scroll behavior](#scroll-behavior)
+12. [Run the demo](#run-the-demo-this-repo)
+13. [Package & license](#package)
 
 ## Why glob, not filesystem?
 
@@ -460,6 +461,52 @@ const routes = createNnnRoutes(modules, { routesRoot: "src/pages" });
 
 ---
 
+## Navigation progress bar
+
+**`createNnnProgress`** attaches a `position: fixed` progress bar to Vue Router. It starts before Vue Router resolves lazy components and completes in `afterEach`; errors, cancelled/redirected navigations, and overlapping navigations are cleaned up safely.
+
+```ts
+import { createRouter, createWebHistory } from "vue-router";
+import { createNnnProgress } from "vue-nnn-router";
+
+export const router = createRouter({
+  history: createWebHistory(),
+  routes,
+});
+
+createNnnProgress(router, {
+  enabled: true,
+  color: "#ff4d00",
+  height: 3,
+  position: "top",
+  delay: 120,
+});
+```
+
+A regular SPA **does not need to store a variable**. The function returns a cleanup handle; keep it only when hooks/DOM must be removed in tests, micro-frontends, or HMR:
+
+```ts
+const progress = createNnnProgress(router);
+// When disposing the router:
+progress.destroy();
+```
+
+The bar starts at **0%**, advances heuristically up to **90%** while navigation is pending, and reaches **100%** when Vue Router confirms completion. Dynamic `import()` does not expose downloaded-byte progress, so the value before completion is visual feedback rather than a real network percentage.
+
+No CSS or external dependency is required. With the default `delay: 120`, fast navigations do not create DOM; the long-running animation uses CSS/compositor work instead of a polling timer. `enabled: false` registers no router hooks and creates no DOM.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | `boolean` | `true` | Completely enables or disables the progress bar. |
+| `color` | `string` | `"#ff4d00"` | Bar and glow color. |
+| `height` | `number \| string` | `3` | Thickness; numbers are treated as pixels. |
+| `position` | `"top" \| "bottom"` | `"top"` | Viewport edge where the bar is fixed. |
+| `delay` | `number` | `120` | Milliseconds before showing, avoiding flashes. |
+| `minimumVisible` | `number` | `0` | Minimum visible time; increasing it delays completion beyond page readiness. |
+| `zIndex` | `number` | `2147483647` | Stacking level of the bar. |
+
+---
+
 ## Route meta & utilities
 
 Each generated leaf sets **`meta.nnnFile`** to the **original** glob key (before strip), which helps editors and debugger linking.
@@ -529,7 +576,7 @@ import { ROUTER_NAME } from "@/router/router-name";
 router.push({ name: ROUTER_NAME.usersAdd });
 ```
 
-**Exported helpers:** `createNnnModules`, **`warnIfEagerPages`**, `createSpaNnnRoutes`, `createNnnRoutesWithNames`, **`collectRouteNames`**, **`routeNameToCamelKey`**, **`formatRouterNameModule`**, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`isRedirectKey`**, **`redirectDirFromNormKey`**, **`dynamicScore`**, **`isLazyGlobModule`**, **`isEagerPageModule`**, **`createNnnScrollBehavior`**, **`defineNnnScroll`**, **`toNnnScrollMeta`**, **`normalizeNnnScroll`**. Vite: **`vueNnnRouterNamesPlugin`**, **`vueNnnRouterScrollPlugin`** from **`vue-nnn-router/vite`**. Constants: **`NNN_LAZY_VIEW_GLOBS`**, **`NNN_EAGER_SIDECAR_GLOBS`**.
+**Exported helpers:** `createNnnModules`, **`warnIfEagerPages`**, **`createNnnProgress`**, `createSpaNnnRoutes`, `createNnnRoutesWithNames`, **`collectRouteNames`**, **`routeNameToCamelKey`**, **`formatRouterNameModule`**, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`isRedirectKey`**, **`redirectDirFromNormKey`**, **`dynamicScore`**, **`isLazyGlobModule`**, **`isEagerPageModule`**, **`createNnnScrollBehavior`**, **`defineNnnScroll`**, **`toNnnScrollMeta`**, **`normalizeNnnScroll`**. Vite: **`vueNnnRouterNamesPlugin`**, **`vueNnnRouterScrollPlugin`** from **`vue-nnn-router/vite`**. Constants: **`NNN_LAZY_VIEW_GLOBS`**, **`NNN_EAGER_SIDECAR_GLOBS`**.
 
 ---
 
