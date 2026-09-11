@@ -67,8 +67,13 @@ describe("formatScrollMapModule", () => {
       "src/pages/b.vue": { top: 10 },
       "src/pages/a.vue": { enabled: false },
     });
-    expect(src).toContain('import type { NnnScrollMap } from "vue-nnn-router";');
+    expect(src).toContain(
+      'import type { NnnScrollMap, NnnSmoothScrollMap } from "vue-nnn-router";',
+    );
     expect(src).toContain("export const NNN_SCROLL: NnnScrollMap = {");
+    expect(src).toContain(
+      "export const NNN_SMOOTH_SCROLL: NnnSmoothScrollMap = {",
+    );
     expect(src.indexOf("a.vue")).toBeLessThan(src.indexOf("b.vue"));
   });
 

@@ -23,4 +23,6 @@ export type NnnRouteMeta = {
   nnnFile?: string;
   /** Per-page scroll config (namespaced để tránh xung đột thư viện khác). */
   nnnScroll?: import("./scrollMeta").NnnScrollMeta;
+  /** Per-page continuous smooth-scroll config. */
+  nnnSmoothScroll?: import("./smoothScrollMeta").NnnSmoothScrollMeta;
 };

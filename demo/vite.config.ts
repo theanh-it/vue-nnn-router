@@ -29,11 +29,25 @@ export default defineConfig({
     }) as import("vite").PluginOption,
   ],
   resolve: {
-    alias: {
+    alias: [
       /** Trỏ vào source gốc — không bắt buộc `npm run build` ở thư mục cha để dev. */
-      "vue-nnn-router": resolve(demoDir, "../src/index.ts"),
-      "vue-nnn-router/vite": resolve(demoDir, "../src/vitePlugin.ts"),
-    },
+      {
+        find: "vue-nnn-router/progress",
+        replacement: resolve(demoDir, "../src/progress.ts"),
+      },
+      {
+        find: "vue-nnn-router/smooth-scroll",
+        replacement: resolve(demoDir, "../src/smoothScroll.ts"),
+      },
+      {
+        find: "vue-nnn-router/vite",
+        replacement: resolve(demoDir, "../src/vitePlugin.ts"),
+      },
+      {
+        find: "vue-nnn-router",
+        replacement: resolve(demoDir, "../src/index.ts"),
+      },
+    ],
   },
   // server: {
   //   port: 5174,

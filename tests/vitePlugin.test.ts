@@ -141,7 +141,7 @@ describe("generateRouterScrollFile", () => {
       const pagePath = join(pagesDir, "index.vue");
       writeFileSync(
         pagePath,
-        "<script setup>defineNnnScroll({ top: 40 })</script>",
+        "<script setup>defineNnnScroll({ top: 40 }); defineNnnSmoothScroll({ disableOnMobile: true })</script>",
       );
 
       const options = {
@@ -155,6 +155,8 @@ describe("generateRouterScrollFile", () => {
       const outputPath = join(root, "src/router/router-scroll.ts");
       const content = readFileSync(outputPath, "utf8");
       expect(content).toContain('{"top":40}');
+      expect(content).toContain("NNN_SMOOTH_SCROLL");
+      expect(content).toContain('{"disableOnMobile":true}');
 
       expect(generateRouterScrollFile(options)).toBe(false);
       expect(readFileSync(outputPath, "utf8")).toBe(content);
@@ -167,6 +169,7 @@ describe("generateRouterScrollFile", () => {
       const updatedContent = readFileSync(outputPath, "utf8");
       expect(updatedContent).not.toBe(content);
       expect(updatedContent).toContain('{"top":80}');
+      expect(updatedContent).not.toContain('{"disableOnMobile":true}');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

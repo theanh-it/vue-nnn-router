@@ -1,533 +1,200 @@
 # vue-nnn-router
 
-File-based routing for **[Vue Router](https://router.vuejs.org/)** (**4.x** or **5.x**): **SPA-style** pages (`index.vue`, optional **`_layout.vue`** and **`_redirect.ts`** per folder), dynamic segments **`[param]` → `:param`**, cascading **`_middleware.ts`**, powered by a Vite **`import.meta.glob`** map (or any equivalent `Record<string, unknown>`).
+File-based SPA routing for [Vue Router](https://router.vuejs.org/). Turn a Vite `import.meta.glob` map into routes with layouts, dynamic segments, middleware, redirects, route names, scroll behavior, a progress bar, and optional Lenis smooth scrolling.
 
-**English** | [Tiếng Việt](README.vi.md)
+**English** · [Tiếng Việt](README.vi.md) · [npm](https://www.npmjs.com/package/vue-nnn-router) · [Changelog](CHANGELOG.md)
 
-## Contents
+## Features
 
-1. [Why glob, not filesystem?](#why-glob-not-filesystem)
-2. [Install & requirements](#install--requirements)
-3. [Quick start](#quick-start)
-4. [Folder layout & URL mapping](#folder-layout--url-mapping)
-5. [Glob patterns and `routesRoot`](#glob-patterns-and-routesroot) — three common setups
-6. [`createNnnRoutes` options (with examples)](#creatennroutes-options-with-examples)
-7. [Middleware (directory + per-route)](#middleware-directory--per-route)
-8. [Eager vs lazy `import.meta.glob`](#eager-vs-lazy-importmetaglob)
-9. [Navigation progress bar](#navigation-progress-bar)
-10. [Route meta & utilities](#route-meta--utilities)
-11. [Scroll behavior](#scroll-behavior)
-12. [Run the demo](#run-the-demo-this-repo)
-13. [Package & license](#package)
+- `index.vue`, nested pages, and `_layout.vue`
+- `[id].vue` or `[id]/index.vue` → `:id`
+- Cascading `_middleware.ts`
+- `_redirect.ts` for a layout's default child
+- Lazy-loaded pages with eager middleware and redirects
+- Stable route names and optional generated constants
+- Route-change scrolling and per-page scroll settings
+- Optional progress bar and Lenis continuous smooth scrolling
 
-## Why glob, not filesystem?
-
-There is no usable filesystem API inside the browser bundle for your route tree, so this library turns a **glob map** (resolved at build time) into **`RouteRecordRaw[]`**.
-
-## Install & requirements
+## Install
 
 ```bash
 npm install vue-nnn-router
 ```
 
-- **Vue** `^3.3` (with **Vue Router 5**, follow that release’s peer: typically **Vue `^3.5`**).
-- **Vue Router** `^4.2` **or** `^5.0` — this package only builds plain **`RouteRecordRaw[]`** and **`beforeEnter`** guards compatible with both lines.
-- **Vite** `import.meta.glob` (or any object shaped like the glob result)
+Requirements:
 
-Guards exported from **`_middleware.ts`** and per-route **`middleware`** use the same **`next()` callback style** Vue Router accepts on both majors; Vue Router **5 may log deprecations** encouraging return-based guards — behavior is unchanged for your users until they refactor.
+- Vue `^3.3`
+- Vue Router `^4.2` or `^5.0`
+- Vite, or another tool that provides an `import.meta.glob`-shaped map
+
+Lenis is only required for continuous smooth scrolling:
+
+```bash
+npm install lenis
+```
 
 ## Quick start
 
-**1. Put pages under `src/pages/`** (recommended name; any folder works).
-
-**2. Build a module map and call `createNnnRoutes`:**
-
-```ts
-// e.g. src/router/index.ts
-import { createRouter, createWebHistory } from "vue-router";
-import { createNnnRoutes } from "vue-nnn-router";
-
-const modules = import.meta.glob(
-  [
-    "/src/pages/**/*.{vue,tsx,jsx,ts,js}",
-    "/src/pages/**/_middleware.ts",
-  ],
-  { eager: true },
-);
-
-const routes = createNnnRoutes(modules as Record<string, unknown>, {
-  routesRoot: "src/pages",
-});
-
-export const router = createRouter({
-  history: createWebHistory(),
-  routes,
-});
-```
-
-**3. Mount the router** in `main.ts` as usual.
-
-## Folder layout & URL mapping
-
-```
-pages/
-  _middleware.ts           # applies to all pages under pages/
-  index.vue                # URL /
-  about/
-    index.vue              # /about
-  users/
-    _layout.vue            # layout for /users/** — must render <RouterView />
-    _middleware.ts
-    _redirect.ts           # (optional) redirect /users when there is no index.vue
-    index.vue              # /users
-    add.vue                # /users/add
-    [id].vue               # /users/:id (shorthand; same idea as users/[id]/index.vue)
-```
-
-- **Allowed extensions:** `.vue`, `.tsx`, `.jsx`, `.ts`, `.js`.
-- **`index.*`:** index URL for that folder.
-- **Other basenames (`add.vue`, …):** one more segment in the URL.
-- **`[param].*` or `[param]/` folders:** **`[id]` → `:id`** in the URL.
-- **`_layout.vue`:** wraps child routes (same **`_`** prefix rule as **`_middleware.ts`**); nested views need **`<RouterView />`**.
-- **`_redirect.ts`:** when a folder has **`_layout`** but **no** **`index.*`**, the library injects `{ path: "", redirect: "..." }`. `export default` is an absolute URL (`"/users/add"`) or a relative segment (`"add"`). If **`index.*`** exists, **`_redirect` is ignored**.
-
-## Glob patterns and `routesRoot`
-
-Keys in the glob object must be normalized consistently: this library runs each key through **`simplifyGlobKey`** (drops leading `./`, drops a single leading **`/`**) and then **`stripRoutesRoot`** when you pass **`routesRoot`**.
-
-You must pass **`routesRoot`** exactly matching the prefix of those normalized keys — the part **before** the path that drives the route tree (`about/index.vue`, `users/[id].vue`, …).
-
-### Case A — Root-relative glob (recommended)
-
-Pattern starts with **`/`** → resolved from the Vite **project root** (folder that contains **`vite.config`**).
-
-```ts
-const modules = import.meta.glob(
-  [
-    "/src/pages/**/*.{vue,tsx,jsx,ts,js}",
-    "/src/pages/**/_middleware.ts",
-  ],
-  { eager: true },
-);
-
-createNnnRoutes(modules as Record<string, unknown>, {
-  routesRoot: "src/pages",
-});
-```
-
-Keys look like **`src/pages/about/index.vue`** → strip **`src/pages`** → **`about/index.vue`**.
-
-### Case B — Relative to the file that calls `import.meta.glob`
-
-Useful when you keep **`src/router/index.ts`** next to **`src/pages/`**:
-
-```ts
-const modules = import.meta.glob(
-  [
-    "../pages/**/*.{vue,tsx,jsx,ts,js}",
-    "../pages/**/_middleware.ts",
-  ],
-  { eager: true },
-);
-
-createNnnRoutes(modules as Record<string, unknown>, {
-  routesRoot: "../pages",
-});
-```
-
-Keys look like **`../pages/about/index.vue`**.
-
-### Case C — Manual map, no strip
-
-If **you omit `routesRoot`**, normalized keys must already be rooted at the routing tree (**no stray `src/pages` prefix**). Handy for tests or codegen.
-
-```ts
-createNnnRoutes(
-  {
-    "about/index.vue": { default: AboutPage },
-    "index.vue": { default: HomePage },
-  } as Record<string, unknown>,
-  {
-    /** no routesRoot — keys ARE the tree paths after normalize */
-  },
-);
-```
-
-❌ Typical mistake: **`routesRoot: "pages"`** while using **`Case A`** — keys become **`src/pages/...`**; the prefix **`pages`** alone does **not** match. Prefer **`routesRoot: "src/pages"`** or switch to **`Case B`**.
-
----
-
-## `createNnnRoutes` options (with examples)
-
-| Option          | Purpose |
-|----------------|---------|
-| `routesRoot`   | Strip filesystem prefix from each glob key (after `simplifyGlobKey`). |
-| `prefix`       | Leading URL segment for **all** generated paths. |
-| `onDuplicate`  | Two files resolving to the same URL path. |
-| `verbose`      | Print path ↔ source file table after build. |
-| `logger`       | Custom printer for **`verbose`** (defaults to **`console.log`**). |
-| `silent`       | Suppress warnings and disable **`verbose`** output. |
-
-**Default duplicate resolution:** if you do nothing, the **first** matching leaf (by stable internal ordering) wins. Set **`onDuplicate: "last-wins"`** to keep the opposite. Duplicate sets still **`console.warn`** unless **`silent: true`** or you pass a **callback** (callback replaces built-in duplicate warnings).
-
-### `routesRoot`
-
-Already covered above. Use **`warnIfRoutesRootLikelyWrong`** from the package export if you want to detect misaligned roots in tooling (see [Utilities](#route-meta--utilities)).
-
-### `prefix`
-
-Adds a stable URL segment in front of every route (**leading/trailing slashes are normalized away**):
-
-```ts
-createNnnRoutes(modules as Record<string, unknown>, {
-  routesRoot: "src/pages",
-  prefix: "/app", // or "app"
-});
-```
-
-- Page that was **`/`** becomes **`/app`** (or **`/app/`** normalized).
-- **`/users`** becomes **`/app/users`**.
-
-### `onDuplicate`: `"first-wins"` \| `"last-wins"` \| callback
-
-When two files map to the **same URL** (for example two `index.vue` files both resolving to **`/`**).
-
-```ts
-// Keep the chronologically later file after internal ordering:
-createNnnRoutes(modules as Record<string, unknown>, {
-  routesRoot: "src/pages",
-  onDuplicate: "last-wins",
-  silent: true, // omit duplicate warnings if intentional
-});
-
-// Or handle yourself (no default duplicate warning for these):
-createNnnRoutes(modules as Record<string, unknown>, {
-  routesRoot: "src/pages",
-  onDuplicate: (path, files) => {
-    console.error(`Duplicate URL ${path}`, files);
-  },
-});
-```
-
-### `verbose` and `logger`
-
-```ts
-createNnnRoutes(modules as Record<string, unknown>, {
-  routesRoot: "src/pages",
-  verbose: true,
-  logger: (...args) => {
-    // e.g. send to tooling instead of stdout
-    args.forEach((a) => myTooling.log(String(a)));
-  },
-});
-```
-
-If **`silent: true`**, **`verbose`** has no channel (logging is disabled).
-
-### `silent`
-
-Turns **off**:
-
-- Duplicate-path **`console.warn`**
-- Other library warnings (`routesRoot` mismatch, duplicate middleware keys, …)
-- **`verbose`** printing
-
----
-
-## Middleware (directory + per-route)
-
-### At a glance
-
-| Goal | What to use |
-|------|-------------|
-| Run before **all** routes under a folder (and its subfolders) | That folder’s **`_middleware.ts`** — `export default` one guard or `export default [a, b]` |
-| Run for **one URL** only | In the page module: **`export function middleware`** (or `export { … as middleware }`) — glob for that file must be **`eager`** |
-| Avoid per-page `middleware` with lazy code-splitting | Keep **`_middleware.ts`** in a separate **`import.meta.glob(..., { eager: true })`** |
-
-### File layout
-
-Place **`_middleware.ts`** (or **`_middleware.js`**) inside a page directory. It applies to the **entire URL subtree** under that folder (including deeper pages that do not define their own `_middleware`).
+Create pages under `src/pages`:
 
 ```text
 src/pages/
-  _middleware.ts          ← root guard: every URL under pages/
-  index.vue                 ← /
-  users/
-    _middleware.ts          ← extra guard for every URL under /users/...
-    index.vue               ← /users
-    add.vue                 ← /users/add
+├── index.vue                 # /
+├── about.vue                 # /about
+└── users/
+    ├── _layout.vue           # wraps /users/**; render <RouterView />
+    ├── _middleware.ts        # runs for /users/**
+    ├── index.vue             # /users
+    ├── add.vue               # /users/add
+    └── [id].vue              # /users/:id
 ```
 
-### Order when you navigate to a URL
-
-Each **leaf** `RouteRecordRaw` gets a single composed **`beforeEnter`** chain. This library concatenates:
-
-1. The **`_middleware.ts`** at the routing root (`pages/`, empty prefix),
-2. Then each deeper **`_middleware.ts`** along the path (`users/`, …),
-3. Finally the page module’s **`middleware`** export (if any and the module was loaded **eagerly**).
-
-**Example:** navigating to **`/users/add`** with the tree above:
-
-1. Default export from **`pages/_middleware.ts`**
-2. Default export from **`pages/users/_middleware.ts`**
-3. (If present) **`middleware`** from **`pages/users/add.vue`**
-
-If any guard calls `next(false)`, `throw`, or redirects with `next('/somewhere')`, later steps follow normal Vue Router rules (may never run).
-
-### `_redirect.ts` — default child when a layout has no `index`
-
-If a folder has **`_layout.vue`** but **no** **`index.vue`**, visiting the parent URL (e.g. `/users`) renders the layout with an empty `<RouterView />`. Add **`_redirect.ts`** next to **`_layout`** and the library injects `{ path: "", redirect: "..." }`:
+Create the router. Pages stay lazy; middleware and redirects load eagerly:
 
 ```ts
-// src/pages/users/_redirect.ts
-export default "add"; // redirects /users → /users/add
+// src/router/index.ts
+import { createRouter, createWebHistory } from "vue-router";
+import {
+  createNnnModules,
+  createNnnRoutes,
+} from "vue-nnn-router";
 
-// or an absolute URL:
-// export default "/users/add";
-```
+const views = import.meta.glob("/src/pages/**/*.{vue,tsx,jsx}");
 
-Include the file in your glob (`**/*.{ts,js}` or `**/_redirect.ts`, **eager**).
-
-If **`index.*`** already exists, **`_redirect` is ignored** — `index` remains the default page.
-
-**With `prefix`:** prefer a **relative** target (`"add"` → `/app/users/add` when `prefix: "app"`). An **absolute** path (`"/users/add"`) is used as-is and does **not** include `prefix`.
-
-### Directory middleware — default export, single guard
-
-```ts
-// src/pages/_middleware.ts
-import type {
-  NavigationGuardNext,
-  RouteLocationNormalized,
-} from "vue-router";
-
-export default function rootGuard(
-  to: RouteLocationNormalized,
-  _from: RouteLocationNormalized,
-  next: NavigationGuardNext
-) {
-  // e.g. if (!token && to.meta.requiresAuth) return next('/login')
-  next();
-}
-```
-
-A nested folder guard is identical in shape:
-
-```ts
-// src/pages/users/_middleware.ts
-import type {
-  NavigationGuardNext,
-  RouteLocationNormalized,
-} from "vue-router";
-
-export default function usersGuard(
-  to: RouteLocationNormalized,
-  _from: RouteLocationNormalized,
-  next: NavigationGuardNext
-) {
-  next();
-}
-```
-
-### Directory middleware — default export, **array** of guards
-
-Guards run **left-to-right** within that folder’s layer **before** child-folder `_middleware` or the page `middleware`:
-
-```ts
-import type {
-  NavigationGuardNext,
-  RouteLocationNormalized,
-} from "vue-router";
-
-function logVisit(
-  to: RouteLocationNormalized,
-  _from: RouteLocationNormalized,
-  next: NavigationGuardNext
-) {
-  console.log(to.fullPath);
-  next();
-}
-
-function checkSomething(
-  to: RouteLocationNormalized,
-  _from: RouteLocationNormalized,
-  next: NavigationGuardNext
-) {
-  next();
-}
-
-export default [logVisit, checkSomething];
-```
-
-### Per-page `middleware` in a `.vue` SFC
-
-Use this when **one URL** needs logic that doesn’t belong in a whole-folder `_middleware`.
-
-With **`<script setup>`**, keep a **plain `<script lang="ts">` block** (no setup) dedicated to **`middleware`**, plus **`<script setup>`** for the component — this avoids fighting `export default` rules:
-
-```vue
-<!-- src/pages/users/add.vue -->
-<script lang="ts">
-import type { NavigationGuardNext, RouteLocationNormalized } from "vue-router";
-
-/** Runs after all pages/ and pages/users/ _middleware.ts guards. */
-export function middleware(
-  to: RouteLocationNormalized,
-  _from: RouteLocationNormalized,
-  next: NavigationGuardNext
-) {
-  next();
-}
-</script>
-
-<script setup lang="ts">
-// page component as usual
-</script>
-
-<template>
-  <section>…</section>
-</template>
-```
-
-Equivalent: **`export { myGuard as middleware }`** in the same file.
-
-**Requirement:** the merged glob must **eagerly** load any page module that exports **`middleware`**, e.g. `import.meta.glob('/src/pages/**/*.vue', { eager: true })` for those routes, or list them in a separate eager pattern. Otherwise the export is not available when `createNnnRoutes` runs.
-
-### `.ts`/`.js` route modules
-
-The same **`middleware`** export applies; those entries must still be **eager** in the merged glob map when you rely on composed `middleware`.
-
-### Lazy glob caveat
-
-⚠️ If the page file is only imported through a **lazy** glob (no **`eager: true`**), **`createNnnRoutes`** never sees **`middleware`** exports at generation time — the leaf **`beforeEnter`** contains **only** directory `_middleware.ts` guards that were eager-loaded.
-
-**Reliable split:** eagerly glob **`/_middleware.ts`** only, keep **`*.vue`** lazy. See [Eager vs lazy `import.meta.glob`](#eager-vs-lazy-importmetaglob).
-
----
-
-## Eager vs lazy `import.meta.glob`
-
-### All eager (simplest — matches quick start)
-
-```ts
-const modules = import.meta.glob(["/src/pages/**/*.vue", "/src/pages/**/_middleware.ts"], {
-  eager: true,
-});
-
-createNnnRoutes(modules as Record<string, unknown>, { routesRoot: "src/pages" });
-```
-
-### Lazy pages + eager sidecars (recommended)
-
-Use **`createNnnModules`** — lazy **`.vue`** / layouts, eager **`_middleware.ts`** and **`_redirect.ts`**. Each zone (`users/`, `admin/`, …) loads only when navigated to.
-
-```ts
-import { createNnnModules, createNnnRoutes } from "vue-nnn-router";
-
-const lazyViews = import.meta.glob("/src/pages/**/*.{vue,tsx,jsx}");
-
-const eagerSidecars = import.meta.glob(
-  ["/src/pages/**/_middleware.ts", "/src/pages/**/_redirect.ts"],
+const sidecars = import.meta.glob(
+  ["/src/pages/**/_middleware.{ts,js}", "/src/pages/**/_redirect.{ts,js}"],
   { eager: true },
 );
 
 const modules = createNnnModules({
-  views: lazyViews as Record<string, unknown>,
-  eager: eagerSidecars as Record<string, unknown>,
+  views: views as Record<string, unknown>,
+  eager: sidecars as Record<string, unknown>,
 });
 
-const routes = createNnnRoutes(modules, { routesRoot: "src/pages" });
-```
-
-- **`warnIfEagerPages`** runs automatically (disable with `silent: true`) when all page modules are eager.
-- Folders **with or without** `_layout.vue` both work — lazy applies per matched file.
-- Per-page **`middleware`** in `.vue` still requires that file to be **eager** (prefer `_middleware.ts`).
-
-### Manual merge (same idea)
-
-```ts
-const lazyViews = import.meta.glob("/src/pages/**/*.vue");
-const eagerMw = import.meta.glob("/src/pages/**/_middleware.ts", { eager: true });
-
-const modules = {
-  ...(lazyViews as Record<string, unknown>),
-  ...(eagerMw as Record<string, unknown>),
-};
-
-const routes = createNnnRoutes(modules, { routesRoot: "src/pages" });
-```
-
-**Note:** Middleware files under **`/src/pages/**`** are usually separate keys from **`.vue`** files — no key collision unless you overlap patterns carelessly.
-
----
-
-## Navigation progress bar
-
-**`createNnnProgress`** attaches a `position: fixed` progress bar to Vue Router. It starts before Vue Router resolves lazy components and completes in `afterEach`; errors, cancelled/redirected navigations, and overlapping navigations are cleaned up safely.
-
-```ts
-import { createRouter, createWebHistory } from "vue-router";
-import { createNnnProgress } from "vue-nnn-router";
+const routes = createNnnRoutes(modules, {
+  routesRoot: "src/pages",
+});
 
 export const router = createRouter({
   history: createWebHistory(),
   routes,
 });
+```
 
-createNnnProgress(router, {
-  enabled: true,
-  color: "#ff4d00",
-  height: 3,
-  position: "top",
-  delay: 120,
+Mount it normally:
+
+```ts
+// src/main.ts
+import { createApp } from "vue";
+import App from "./App.vue";
+import { router } from "./router";
+
+createApp(App).use(router).mount("#app");
+```
+
+## File conventions
+
+| File | Result |
+|---|---|
+| `index.vue` | The current folder's URL |
+| `about.vue` | Adds `/about` |
+| `[id].vue` | Adds `/:id` |
+| `[id]/index.vue` | Also adds `/:id` |
+| `_layout.vue` | Wraps routes below that folder |
+| `_middleware.ts` | Runs before every route below that folder |
+| `_redirect.ts` | Redirects a layout that has no `index` page |
+
+Page components may use `.vue`, `.tsx`, `.jsx`, `.ts`, or `.js`. Add any extensions you use to the `views` glob.
+
+An `_layout.vue` must render `<RouterView />`:
+
+```vue
+<template>
+  <main class="users-layout">
+    <RouterView />
+  </main>
+</template>
+```
+
+### `routesRoot`
+
+`routesRoot` removes the non-URL part of each glob key:
+
+| Glob | `routesRoot` |
+|---|---|
+| `/src/pages/**` | `src/pages` |
+| `../pages/**` | `../pages` |
+| Keys already look like `users/index.vue` | omit it |
+
+For the recommended `/src/pages/**` glob, use `routesRoot: "src/pages"`.
+
+### Route options
+
+```ts
+createNnnRoutes(modules, {
+  routesRoot: "src/pages",
+  prefix: "app",
+  onDuplicate: "first-wins",
+  verbose: false,
+  silent: false,
 });
 ```
 
-A regular SPA **does not need to store a variable**. The function returns a cleanup handle; keep it only when hooks/DOM must be removed in tests, micro-frontends, or HMR:
+| Option | Default | Purpose |
+|---|---:|---|
+| `routesRoot` | — | Remove the filesystem prefix from glob keys |
+| `prefix` | — | Add one URL prefix to every route |
+| `onDuplicate` | `"first-wins"` | Resolve two files that produce the same URL; also accepts `"last-wins"` or a callback |
+| `verbose` | `false` | Print the generated path-to-file table |
+| `logger` | `console.log` | Replace the verbose logger |
+| `silent` | `false` | Hide warnings and verbose output |
 
-```ts
-const progress = createNnnProgress(router);
-// When disposing the router:
-progress.destroy();
+## Middleware and redirects
+
+Directory middleware cascades from parent to child, then page middleware runs last:
+
+```text
+pages/_middleware.ts
+→ pages/users/_middleware.ts
+→ middleware exported by pages/users/add.vue
 ```
 
-The bar starts at **0%**, advances heuristically up to **90%** while navigation is pending, and reaches **100%** when Vue Router confirms completion. Dynamic `import()` does not expose downloaded-byte progress, so the value before completion is visual feedback rather than a real network percentage.
+Export one guard or an array of guards:
 
-No CSS or external dependency is required. With the default `delay: 120`, fast navigations do not create DOM; the long-running animation uses CSS/compositor work instead of a polling timer. `enabled: false` registers no router hooks and creates no DOM.
+```ts
+// src/pages/users/_middleware.ts
+import type { NavigationGuard } from "vue-router";
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | `boolean` | `true` | Completely enables or disables the progress bar. |
-| `color` | `string` | `"#ff4d00"` | Bar and glow color. |
-| `height` | `number \| string` | `3` | Thickness; numbers are treated as pixels. |
-| `position` | `"top" \| "bottom"` | `"top"` | Viewport edge where the bar is fixed. |
-| `delay` | `number` | `120` | Milliseconds before showing, avoiding flashes. |
-| `minimumVisible` | `number` | `0` | Minimum visible time; increasing it delays completion beyond page readiness. |
-| `zIndex` | `number` | `2147483647` | Stacking level of the bar. |
+const requireUser: NavigationGuard = (to) => {
+  if (!hasSession() && to.path !== "/login") return "/login";
+};
 
----
+export default requireUser;
+// export default [logVisit, requireUser];
+```
 
-## Route meta & utilities
+Keep `_middleware.ts` eager. A `middleware` export inside a page is only available when that page itself is eager, so directory middleware is the recommended choice with lazy pages.
 
-Each generated leaf sets **`meta.nnnFile`** to the **original** glob key (before strip), which helps editors and debugger linking.
+Use `_redirect.ts` beside `_layout.vue` when the folder has no `index` page:
 
-### Route `name` (auto-generated)
+```ts
+// src/pages/users/_redirect.ts
+export default "add"; // /users → /users/add
+```
 
-Every route gets a **`name`** from its **absolute URL path** (after `prefix`), not from Vue `defineOptions({ name })`.
+Use a relative target when `prefix` is enabled. An absolute target such as `"/users/add"` is used unchanged.
 
-| URL path | `route.name` | `ROUTER_NAME` key (camelCase) |
-|----------|--------------|-------------------------------|
+## Route names
+
+Names are generated from URLs:
+
+| URL | `route.name` | Constant key |
+|---|---|---|
 | `/` | `home` | `home` |
 | `/users/add` | `users-add` | `usersAdd` |
 | `/users/:id` | `users-id` | `usersId` |
-| Layout `/users` | `users-layout` | `usersLayout` |
-| Redirect `/settings` | `settings-redirect` | `settingsRedirect` |
 
-Custom route names are **not** configurable yet — use **`collectRouteNames`**, **`createNnnRoutesWithNames`**, or the Vite plugin below.
-
-### `ROUTER_NAME` constants (camelCase)
-
-**Runtime:**
+For a runtime map:
 
 ```ts
 import { createNnnRoutesWithNames } from "vue-nnn-router";
@@ -539,130 +206,210 @@ const { routes, routeNames } = createNnnRoutesWithNames(modules, {
 router.push({ name: routeNames.usersAdd });
 ```
 
-**Generated file** (dev/build) via Vite plugin:
+For an auto-generated `ROUTER_NAME` file, add the names plugin:
 
 ```ts
 // vite.config.ts
+import { defineConfig } from "vite";
 import { vueNnnRouterNamesPlugin } from "vue-nnn-router/vite";
 
 export default defineConfig({
   plugins: [
     vueNnnRouterNamesPlugin({
       pages: [
-        "src/pages/**/*.{vue,tsx,jsx,ts,js}",
-        "src/pages/**/_middleware.ts",
-        "src/pages/**/_redirect.ts",
+        "src/pages/**/*.{vue,tsx,jsx}",
+        "src/pages/**/_redirect.{ts,js}",
       ],
       routesRoot: "src/pages",
-      outFile: "src/router/router-name.ts", // optional — default
     }),
   ],
 });
 ```
 
-Output:
-
 ```ts
-export const ROUTER_NAME = {
-  home: "home",
-  usersAdd: "users-add",
-  usersLayout: "users-layout",
-} as const;
-```
-
-```ts
-import { ROUTER_NAME } from "@/router/router-name";
+import { ROUTER_NAME } from "./router-name";
 
 router.push({ name: ROUTER_NAME.usersAdd });
 ```
 
-**Exported helpers:** `createNnnModules`, **`warnIfEagerPages`**, **`createNnnProgress`**, `createSpaNnnRoutes`, `createNnnRoutesWithNames`, **`collectRouteNames`**, **`routeNameToCamelKey`**, **`formatRouterNameModule`**, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`, **`warnIfRoutesRootLikelyWrong`**, `simplifyGlobKey`, **`stripRoutesRoot`**, `normalizePath`, `pathFromSegments`, **`isMiddlewareKey`**, **`middlewareDirFromNormKey`**, **`middlewareLogicalKey`**, **`isRedirectKey`**, **`redirectDirFromNormKey`**, **`dynamicScore`**, **`isLazyGlobModule`**, **`isEagerPageModule`**, **`createNnnScrollBehavior`**, **`defineNnnScroll`**, **`toNnnScrollMeta`**, **`normalizeNnnScroll`**. Vite: **`vueNnnRouterNamesPlugin`**, **`vueNnnRouterScrollPlugin`** from **`vue-nnn-router/vite`**. Constants: **`NNN_LAZY_VIEW_GLOBS`**, **`NNN_EAGER_SIDECAR_GLOBS`**.
+The default output is `src/router/router-name.ts`.
 
----
+## Scrolling
 
-## Scroll behavior
+There are two separate features:
 
-**`createNnnScrollBehavior`** builds a Vue Router [`scrollBehavior`](https://router.vuejs.org/guide/advanced/scroll-behavior.html) that scrolls to the top on every navigation, with optional smooth animation.
+| Feature | Use it for |
+|---|---|
+| `createNnnScrollBehavior` | Where the page moves after navigation: top, saved position, or hash |
+| `createNnnSmoothScroll` | Lenis-style continuous smoothing while the user scrolls |
+
+### Scroll after navigation
 
 ```ts
-import { createRouter, createWebHistory } from "vue-router";
 import { createNnnScrollBehavior } from "vue-nnn-router";
 
-export const router = createRouter({
+const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior: createNnnScrollBehavior({ smooth: true }),
+  scrollBehavior: createNnnScrollBehavior({
+    restorePosition: true,
+    scrollToHash: true,
+    top: 0,
+  }),
 });
 ```
 
-### Options
+Options:
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `smooth` | `boolean` | `false` | Smooth animation instead of an instant jump. |
-| `restorePosition` | `boolean` | `true` | Restore the saved position on browser Back/Forward. |
-| `scrollToHash` | `boolean` | `true` | Scroll to the `to.hash` anchor element when present. |
-| `skipMetaKey` | `string \| false` | `"noScroll"` | Skip scrolling when `route.meta[key]` is truthy; `false` disables the opt-out. |
-| `top` | `number` | `0` | Offset in px from the top (e.g. a sticky header height). |
-| `left` | `number` | `0` | Horizontal offset in px. |
-| `scrollMap` | `NnnScrollMap` | – | Per-page overrides generated by `vueNnnRouterScrollPlugin`. |
+| Option | Default | Purpose |
+|---|---:|---|
+| `smooth` | `false` | Animate the route-change scroll |
+| `restorePosition` | `true` | Restore position on Back/Forward |
+| `scrollToHash` | `true` | Scroll to the URL hash target |
+| `top` / `left` | `0` | Scroll offsets in pixels |
+| `skipMetaKey` | `"noScroll"` | Skip when that route meta value is truthy; use `false` to disable |
+| `scrollMap` | — | Apply generated per-page settings |
 
-### Per-page config with `defineNnnScroll`
+### Per-page scroll settings
 
-Declare scroll behavior for a single page with one call in `<script setup>` — no need to remember the `meta.nnnScroll` namespace:
-
-```vue
-<script setup lang="ts">
-import { defineNnnScroll } from "vue-nnn-router";
-
-defineNnnScroll({ top: 80, smooth: true }); // this page: 80px offset + smooth
-// defineNnnScroll(false);                   // this page: never scroll
-</script>
-```
-
-This needs the Vite plugin, which extracts each `defineNnnScroll(...)` at dev/build time into a `router-scroll.ts` map (keyed by page file). The argument must be an **object or boolean literal** (statically analyzable — no variables or expressions).
+Add the scroll plugin once:
 
 ```ts
 // vite.config.ts
+import { defineConfig } from "vite";
 import { vueNnnRouterScrollPlugin } from "vue-nnn-router/vite";
 
 export default defineConfig({
   plugins: [
     vueNnnRouterScrollPlugin({
-      pages: ["src/pages/**/*.{vue,tsx,jsx}"],
-      outFile: "src/router/router-scroll.ts", // default
+      pages: "src/pages/**/*.{vue,tsx,jsx}",
     }),
   ],
 });
 ```
 
+It generates `src/router/router-scroll.ts`. Pass its navigation map to the router:
+
 ```ts
-// router.ts — pass the generated map to the behavior
 import { createNnnScrollBehavior } from "vue-nnn-router";
 import { NNN_SCROLL } from "./router-scroll";
 
-scrollBehavior: createNnnScrollBehavior({ smooth: true, scrollMap: NNN_SCROLL });
+scrollBehavior: createNnnScrollBehavior({ scrollMap: NNN_SCROLL });
 ```
 
-The config is stored internally under `route.meta.nnnScroll` (namespaced to avoid clashes with other libraries). Without the plugin you can set it manually — `meta: { ...toNnnScrollMeta({ top: 80 }) }` — but `defineNnnScroll` is the recommended one-liner.
+Then configure a page with a literal value:
 
-`NnnScrollMeta` fields: `enabled` (`false` skips this page), `smooth`, `top`, `left`, `scrollToHash`, `restorePosition`. Any field left out falls back to the global option.
+```vue
+<script setup lang="ts">
+import { defineNnnScroll } from "vue-nnn-router";
 
-### Per-route opt-out
+defineNnnScroll({ top: 80, smooth: true });
+// defineNnnScroll(false); // keep the current position on this page
+</script>
+```
 
-The legacy meta flag still works to keep the current scroll position on navigation:
+### Continuous smooth scrolling with Lenis
+
+Install Lenis and import its CSS:
+
+```bash
+npm install lenis
+```
 
 ```ts
-meta: { noScroll: true }
+// src/main.ts
+import "lenis/dist/lenis.css";
 ```
 
-Resolution order: `skipMetaKey` opt-out → `nnnScroll.enabled === false` → per-page override merged over globals → saved position (Back/Forward) → `to.hash` anchor → scroll to top.
+Attach the controller once after creating the router. The same scroll plugin generates `NNN_SMOOTH_SCROLL`:
 
----
+```ts
+import { createNnnSmoothScroll } from "vue-nnn-router/smooth-scroll";
+import { NNN_SMOOTH_SCROLL } from "./router-scroll";
 
-## Run the demo (this repo)
+const smoothScroll = createNnnSmoothScroll(router, {
+  disableOnMobile: true,
+  mobileBreakpoint: 767,
+  scrollMap: NNN_SMOOTH_SCROLL,
+  lenisOptions: {
+    lerp: 0.1,
+    smoothWheel: true,
+  },
+});
+```
 
-The `demo/` app aliases **`vue-nnn-router`** to **`../src`**.
+Control it per page:
+
+```vue
+<script setup lang="ts">
+import { defineNnnSmoothScroll } from "vue-nnn-router";
+
+defineNnnSmoothScroll(false); // use native scrolling on this page
+
+// Or override the global mobile setting:
+// defineNnnSmoothScroll({ enabled: true, disableOnMobile: false });
+</script>
+```
+
+| Option | Default | Purpose |
+|---|---:|---|
+| `enabled` | `true` | Default state for pages without an override |
+| `disableOnMobile` | `false` | Destroy Lenis and use native scrolling on mobile |
+| `mobileBreakpoint` | `767` | Maximum mobile viewport width in pixels |
+| `scrollMap` | — | Apply generated per-page settings |
+| `lenisOptions` | `{ autoRaf: true }` | Forward options to Lenis |
+
+The controller creates or destroys Lenis as the route and viewport change. Call `smoothScroll.destroy()` when disposing the router in HMR, tests, or a micro-frontend.
+
+Both `defineNnnScroll(...)` and `defineNnnSmoothScroll(...)` must receive an object or boolean literal so the Vite plugin can extract them.
+
+## Navigation progress bar
+
+The progress bar has no CSS or third-party dependency:
+
+```ts
+import { createNnnProgress } from "vue-nnn-router/progress";
+
+const progress = createNnnProgress(router, {
+  color: "#ff4d00",
+  height: 3,
+  position: "top",
+  delay: 120,
+});
+```
+
+| Option | Default | Purpose |
+|---|---:|---|
+| `enabled` | `true` | Enable the progress bar |
+| `color` | `"#ff4d00"` | Bar and glow color |
+| `height` | `3` | CSS thickness; numbers mean pixels |
+| `position` | `"top"` | `"top"` or `"bottom"` |
+| `delay` | `120` | Wait before showing to avoid flashes |
+| `minimumVisible` | `0` | Minimum visible time in milliseconds |
+| `zIndex` | `2147483647` | Stacking level |
+
+Call `progress.destroy()` when cleanup is required. Importing `createNnnProgress` from `vue-nnn-router` still works for backward compatibility.
+
+## Import paths
+
+| Import | Main exports |
+|---|---|
+| `vue-nnn-router` | Route generation, module helpers, names, navigation scroll, and per-page declarations |
+| `vue-nnn-router/progress` | `createNnnProgress` |
+| `vue-nnn-router/smooth-scroll` | `createNnnSmoothScroll` and its types |
+| `vue-nnn-router/vite` | Route-name and scroll code-generation plugins |
+
+Generated leaf routes include `meta.nnnFile`, containing the original glob key for debugging. TypeScript declarations are included.
+
+## Common issues
+
+- **URLs contain `/src/pages`:** set `routesRoot: "src/pages"` for a `/src/pages/**` glob.
+- **A nested page is blank:** make sure its `_layout.vue` renders `<RouterView />`.
+- **Middleware does not run:** load `_middleware.ts` with `{ eager: true }`.
+- **Per-page scroll settings are ignored:** add `vueNnnRouterScrollPlugin` and use a literal argument.
+- **Lenis cannot be resolved:** install `lenis` and import `lenis/dist/lenis.css`.
+
+## Demo
 
 ```bash
 npm install
@@ -670,13 +417,7 @@ npm run demo:install
 npm run demo:dev
 ```
 
-Demo pages live in **`demo/src/pages/`**.
-
----
-
-## Package
-
-[**vue-nnn-router on npm**](https://www.npmjs.com/package/vue-nnn-router) · [CHANGELOG.md](CHANGELOG.md)
+Open `/smooth-scroll` to test Lenis and `/about` to compare native scrolling.
 
 ## License
 

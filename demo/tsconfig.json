@@ -18,6 +18,8 @@
     "baseUrl": ".",
     "paths": {
       "vue-nnn-router": ["../src/index.ts"],
+      "vue-nnn-router/progress": ["../src/progress.ts"],
+      "vue-nnn-router/smooth-scroll": ["../src/smoothScroll.ts"],
       "vue-nnn-router/vite": ["../src/vitePlugin.ts"]
     }
   },

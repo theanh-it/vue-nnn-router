@@ -9,6 +9,7 @@ export const ROUTER_NAME = {
   settingsNotifications: "settings-notifications",
   settingsProfile: "settings-profile",
   settingsRedirect: "settings-redirect",
+  smoothScroll: "smooth-scroll",
   users: "users",
   usersAdd: "users-add",
   usersId: "users-id",

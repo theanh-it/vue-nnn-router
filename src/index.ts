@@ -27,6 +27,15 @@ export {
   toNnnScrollMeta,
 } from "./scrollMeta";
 export type { NnnScrollMeta, NnnScrollMap } from "./scrollMeta";
+export {
+  defineNnnSmoothScroll,
+  normalizeNnnSmoothScroll,
+  toNnnSmoothScrollMeta,
+} from "./smoothScrollMeta";
+export type {
+  NnnSmoothScrollMap,
+  NnnSmoothScrollMeta,
+} from "./smoothScrollMeta";
 export { createNnnProgress } from "./progress";
 export type {
   NnnProgressHandle,

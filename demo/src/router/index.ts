@@ -1,11 +1,12 @@
 import { createRouter, createWebHistory } from "vue-router";
 import {
   createNnnModules,
-  createNnnProgress,
   createNnnRoutes,
   createNnnScrollBehavior,
 } from "vue-nnn-router";
-import { NNN_SCROLL } from "./router-scroll";
+import { createNnnProgress } from "vue-nnn-router/progress";
+import { createNnnSmoothScroll } from "vue-nnn-router/smooth-scroll";
+import { NNN_SCROLL, NNN_SMOOTH_SCROLL } from "./router-scroll";
 export { ROUTER_NAME } from "./router-name";
 
 /** Lazy pages/layouts; eager _middleware + _redirect (recommended split). */
@@ -43,9 +44,17 @@ export const router = createRouter({
   history: createWebHistory(),
   routes,
   scrollBehavior: createNnnScrollBehavior({
-    smooth: true,
     scrollMap: NNN_SCROLL,
   }),
+});
+
+const smoothScroll = createNnnSmoothScroll(router, {
+  disableOnMobile: true,
+  scrollMap: NNN_SMOOTH_SCROLL,
+  lenisOptions: {
+    lerp: 0.1,
+    smoothWheel: true,
+  },
 });
 
 const progress = createNnnProgress(router, {
@@ -57,4 +66,9 @@ const progress = createNnnProgress(router, {
   minimumVisible: 0,
 });
 
-if (import.meta.hot) import.meta.hot.dispose(() => progress.destroy());
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    smoothScroll.destroy();
+    progress.destroy();
+  });
+}

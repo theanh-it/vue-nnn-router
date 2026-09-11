@@ -4,6 +4,7 @@ import { ROUTER_NAME } from "./router/router-name";
 const pathLinks = [
   { to: "/", label: "/" },
   { to: "/about", label: "/about" },
+  { to: "/smooth-scroll", label: "/smooth-scroll ✨" },
   { to: "/users", label: "/users" },
   { to: "/users/add", label: "/users/add" },
   { to: "/users/demo-123", label: "/users/demo-123" },

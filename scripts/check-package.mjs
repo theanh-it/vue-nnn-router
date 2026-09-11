@@ -22,9 +22,13 @@ for (const [subpath, entry] of Object.entries(packageJson.exports)) {
 }
 
 const esmRuntime = await import(packageJson.name);
+const esmProgress = await import(`${packageJson.name}/progress`);
+const esmSmoothScroll = await import(`${packageJson.name}/smooth-scroll`);
 const esmVite = await import(`${packageJson.name}/vite`);
 const require = createRequire(import.meta.url);
 const cjsRuntime = require(packageJson.name);
+const cjsProgress = require(`${packageJson.name}/progress`);
+const cjsSmoothScroll = require(`${packageJson.name}/smooth-scroll`);
 const cjsVite = require(`${packageJson.name}/vite`);
 
 assert(
@@ -34,6 +38,38 @@ assert(
 assert(
   typeof cjsRuntime.createNnnRoutes === "function",
   "CJS runtime export createNnnRoutes is missing",
+);
+assert(
+  typeof esmRuntime.createNnnProgress === "function",
+  "ESM compatibility export createNnnProgress is missing",
+);
+assert(
+  typeof cjsRuntime.createNnnProgress === "function",
+  "CJS compatibility export createNnnProgress is missing",
+);
+assert(
+  !("createNnnSmoothScroll" in esmRuntime),
+  "ESM core unexpectedly includes optional smooth-scroll runtime",
+);
+assert(
+  !("createNnnSmoothScroll" in cjsRuntime),
+  "CJS core unexpectedly includes optional smooth-scroll runtime",
+);
+assert(
+  typeof esmProgress.createNnnProgress === "function",
+  "ESM progress subpath export is missing",
+);
+assert(
+  typeof cjsProgress.createNnnProgress === "function",
+  "CJS progress subpath export is missing",
+);
+assert(
+  typeof esmSmoothScroll.createNnnSmoothScroll === "function",
+  "ESM smooth-scroll subpath export is missing",
+);
+assert(
+  typeof cjsSmoothScroll.createNnnSmoothScroll === "function",
+  "CJS smooth-scroll subpath export is missing",
 );
 assert(
   typeof esmVite.vueNnnRouterNamesPlugin === "function",

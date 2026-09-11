@@ -11,6 +11,8 @@ import {
 import { simplifyGlobKey } from "./globUtils";
 import { extractNnnScroll, formatScrollMapModule } from "./scrollExtract";
 import type { NnnScrollMap } from "./scrollMeta";
+import { extractNnnSmoothScroll } from "./smoothScrollExtract";
+import type { NnnSmoothScrollMap } from "./smoothScrollMeta";
 import { writeFileIfChanged } from "./writeFileIfChanged";
 
 export type VueNnnRouterNamesPluginOptions = {
@@ -163,20 +165,49 @@ export function buildScrollMap(
   return map;
 }
 
-/** Write `router-scroll.ts` exporting the `NNN_SCROLL` map. */
+/** Scan page files and build per-page continuous smooth-scroll config. */
+export function buildSmoothScrollMap(
+  options: VueNnnRouterScrollPluginOptions & { root: string },
+): NnnSmoothScrollMap {
+  const patterns = Array.isArray(options.pages) ? options.pages : [options.pages];
+  const files = globSync(patterns, { cwd: options.root, onlyFiles: true });
+  const map: NnnSmoothScrollMap = {};
+  for (const file of files.sort()) {
+    let code: string;
+    try {
+      code = readFileSync(resolve(options.root, file), "utf8");
+    } catch {
+      continue;
+    }
+    if (!code.includes("defineNnnSmoothScroll")) continue;
+    const cfg = extractNnnSmoothScroll(code);
+    if (cfg) {
+      map[simplifyGlobKey(file)] = cfg;
+    } else if (options.silent !== true) {
+      console.warn(
+        `[vue-nnn-router] Could not statically read defineNnnSmoothScroll(...) in "${file}" ` +
+          `(use an object/boolean literal, not variables or expressions).`,
+      );
+    }
+  }
+  return map;
+}
+
+/** Write `router-scroll.ts` exporting both generated scroll maps. */
 export function generateRouterScrollFile(
   options: VueNnnRouterScrollPluginOptions & { root: string },
 ): boolean {
   const map = buildScrollMap(options);
+  const smoothMap = buildSmoothScrollMap(options);
   const outFile = options.outFile ?? "src/router/router-scroll.ts";
   const outPath = resolve(options.root, outFile);
-  return writeFileIfChanged(outPath, formatScrollMapModule(map));
+  return writeFileIfChanged(outPath, formatScrollMapModule(map, smoothMap));
 }
 
 /**
- * Vite plugin — extracts `defineNnnScroll(...)` from each page at dev/build time
- * and writes a `router-scroll.ts` map. Pass the exported `NNN_SCROLL` to
- * `createNnnScrollBehavior({ scrollMap: NNN_SCROLL })`.
+ * Vite plugin — extracts `defineNnnScroll(...)` and
+ * `defineNnnSmoothScroll(...)` from pages at dev/build time and writes the
+ * `NNN_SCROLL` and `NNN_SMOOTH_SCROLL` maps to `router-scroll.ts`.
  */
 export function vueNnnRouterScrollPlugin(
   options: VueNnnRouterScrollPluginOptions,

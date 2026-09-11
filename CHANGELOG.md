@@ -2,6 +2,13 @@
 
 **Versioning:** while in **`0.x`** the package is in early development and breaking changes may occur in any minor release. Starting from **`1.0.0`**, this package will use **semver major aligned with Vue Router** — **`vue-nnn-router` 4.x** will target **Vue Router 4.x**, and when Vue Router 5 exists, expect **`vue-nnn-router` 5.x** with a Vue Router 5 peer.
 
+## [0.0.9] - 2026-09-11
+
+### Added
+
+- Add Lenis-powered continuous smooth scrolling with `createNnnSmoothScroll`, route-aware `defineNnnSmoothScroll`, generated `NNN_SMOOTH_SCROLL` config, per-page native-scroll opt-out, responsive mobile disabling, and complete lifecycle cleanup.
+- Add optional `vue-nnn-router/smooth-scroll` and `vue-nnn-router/progress` entry points. Lenis is an optional peer dependency; the existing root `createNnnProgress` export remains available for backward compatibility.
+
 ## [0.0.8] - 2026-09-05
 
 ### Added
@@ -77,6 +84,7 @@ Initial public release.
 - Cascading `_middleware.ts` and optional per-route `middleware` export (eager glob).
 - Helpers: `simplifyGlobKey`, `pathNoExt`, `segmentUrlFromFs`, `mwPrefixesForPathNoExt`.
 
+[0.0.9]: https://www.npmjs.com/package/vue-nnn-router/v/0.0.9
 [0.0.8]: https://www.npmjs.com/package/vue-nnn-router/v/0.0.8
 [0.0.7]: https://www.npmjs.com/package/vue-nnn-router/v/0.0.7
 [0.0.6]: https://www.npmjs.com/package/vue-nnn-router/v/0.0.6

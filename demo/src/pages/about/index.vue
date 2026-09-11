@@ -1,5 +1,10 @@
 <script setup lang="ts">
+import { defineNnnSmoothScroll } from "vue-nnn-router";
+
 defineOptions({ name: "AboutRoute" });
+
+/** Demo per-page opt-out: this route uses native scrolling. */
+defineNnnSmoothScroll(false);
 </script>
 
 <template>
@@ -8,6 +13,11 @@ defineOptions({ name: "AboutRoute" });
     <p>
       Route từ
       <code>pages/about/index.vue</code>
+      .
+    </p>
+    <p class="note">
+      Page này dùng native scrolling để so sánh với
+      <RouterLink to="/smooth-scroll">/smooth-scroll</RouterLink>
       .
     </p>
   </section>
@@ -25,5 +35,14 @@ defineOptions({ name: "AboutRoute" });
   margin: 0 0 0.5rem;
   font-size: 1.125rem;
   color: #1e3a8a;
+}
+
+.note {
+  margin-bottom: 0;
+  color: #4b5563;
+}
+
+.note :deep(a) {
+  color: #2563eb;
 }
 </style>
